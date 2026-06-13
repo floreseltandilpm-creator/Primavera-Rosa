@@ -65,6 +65,55 @@
             height: 400px;
             width: 100%;
         }
+        /* ----- ESTILOS PARA IMPRESIÓN ----- */
+        @media print {
+            /* 1. Ocultar la cabecera, controles de subida, pestañas y el pie de página */
+            header, 
+            .row.g-4.mb-4, 
+            #file-info, 
+            #main-tabs, 
+            #blocks-container, 
+            .footer-signature {
+                display: none !important;
+            }
+
+            /* 2. Forzar que los fondos de color de la tabla (verde, amarillo, rojo) sí se impriman */
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            /* 3. Asegurar que solo se imprima el contenido de la pestaña que el usuario está viendo */
+            .tab-pane:not(.active) {
+                display: none !important;
+            }
+
+            .tab-pane.active {
+                display: block !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+            }
+
+            /* 4. Limpiar los márgenes y sombras para no gastar tinta innecesaria */
+            body {
+                background-color: white !important;
+            }
+            .card {
+                box-shadow: none !important;
+                border: none !important;
+            }
+
+            /* 5. Evitar que una gráfica o fila de tabla se corte por la mitad entre dos páginas */
+            tr, .chart-container {
+                page-break-inside: avoid;
+            }
+
+            /* 6. Adaptar las gráficas al ancho total de la hoja de papel */
+            .chart-container {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -148,7 +197,13 @@
 
             <!-- Container to display file info and clear button --><div id="file-info" class="d-none text-center mb-4">
                 <p class="mb-2"><strong>Archivo cargado:</strong> <span id="file-name" class="text-primary"></span></p>
-                <button id="clear-file-btn" class="btn btn-sm btn-outline-danger">Quitar archivo</button>
+                <button id="clear-file-btn" class="btn btn-sm btn-outline-danger me-2">Quitar archivo</button>
+                <button id="print-btn" class="btn btn-sm btn-outline-dark" onclick="window.print()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-printer align-text-bottom me-1" viewBox="0 0 16 16">
+                      <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
+                      <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/>
+                    </svg>Imprimir Vista
+                </button>
             </div>
 
             <div id="loading" class="d-none loader mx-auto"></div>
