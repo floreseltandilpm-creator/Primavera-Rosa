@@ -53,177 +53,133 @@
 
         /* ── HEADER ── */
         .app-header {
-            background: var(--ink-900);
-            color: var(--white);
-            padding: 20px 16px 16px;
+            background: var(--white);
+            color: var(--ink-900);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--ink-200);
             position: sticky;
             top: 0;
             z-index: 100;
-            border-bottom: 3px solid var(--ink-700);
         }
-        .app-header h1 {
-            font-size: 1.35rem;
+        .header-left h1 {
+            font-size: 1.2rem;
             font-weight: 800;
-            letter-spacing: -0.5px;
-            margin: 0 0 2px;
-            line-height: 1.2;
-        }
-        .app-header p {
-            font-size: 0.75rem;
-            color: var(--ink-300);
             margin: 0;
+            color: #2a7a2a; /* logo color */
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-
-        /* ── SECCIÓN DE CARGA ── */
-        .load-section {
-            padding: 16px;
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
         }
-
-        .load-card {
-            background: var(--white);
-            border: 1.5px solid var(--ink-200);
-            border-radius: var(--radius-md);
-            padding: 16px;
-            margin-bottom: 12px;
-        }
-        .load-card-title {
+        .header-control {
             display: flex;
             align-items: center;
             gap: 8px;
+            background: var(--ink-050);
+            padding: 4px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--ink-200);
+        }
+        .control-label {
+            font-size: 0.75rem;
             font-weight: 700;
-            font-size: 0.9rem;
-            color: var(--ink-800);
-            margin-bottom: 6px;
-        }
-        .load-card-title svg {
-            flex-shrink: 0;
             color: var(--ink-500);
         }
-        .load-card p {
-            font-size: 0.78rem;
-            color: var(--ink-500);
-            margin-bottom: 12px;
-        }
-
-        /* Select mes */
         #month-select {
-            width: 100%;
-            padding: 12px 14px;
-            font-size: 0.9rem;
+            border: none;
+            background: transparent;
+            font-size: 0.85rem;
             font-weight: 600;
-            border: 2px solid var(--ink-200);
-            border-radius: var(--radius-sm);
-            background: var(--white);
             color: var(--ink-800);
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23444' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            transition: border-color .2s;
-        }
-        #month-select:focus {
             outline: none;
-            border-color: var(--ink-600);
-            box-shadow: 0 0 0 3px rgba(0,0,0,0.08);
-        }
-
-        .status-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 10px;
+            cursor: pointer;
         }
         #repo-status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 700;
-            background: var(--ink-100);
-            color: var(--ink-600);
-            border: 1.5px solid var(--ink-200);
-            white-space: nowrap;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: var(--ink-500);
+            color: var(--white);
         }
         #repo-status-badge.loaded {
-            background: var(--ok-bg);
-            color: var(--ok);
-            border-color: var(--ok);
+            background: var(--ok);
         }
-        #repo-load-status-msg {
-            font-size: 0.72rem;
-            color: var(--ink-400);
-            margin-top: 6px;
-        }
-
-        /* Zona de subida de archivo */
-        .file-drop-zone {
-            border: 2px dashed var(--ink-300);
-            border-radius: var(--radius-sm);
-            padding: 20px 16px;
-            text-align: center;
-            cursor: pointer;
-            transition: border-color .2s, background .2s;
-            background: var(--ink-050);
-        }
-        .file-drop-zone:hover, .file-drop-zone:active {
-            border-color: var(--ink-600);
-            background: var(--ink-100);
-        }
-        .file-drop-zone p {
-            margin: 0;
-            font-size: 0.82rem;
-            color: var(--ink-500);
-            font-weight: 600;
-        }
-        .file-drop-zone span {
-            font-size: 0.72rem;
-            color: var(--ink-400);
-            font-weight: 400;
-        }
-        .upload-icon {
-            display: block;
-            margin: 0 auto 8px;
-            width: 32px;
-            height: 32px;
-            color: var(--ink-400);
-        }
-
-        /* Pill de archivo cargado */
-        #file-info {
-            background: var(--ink-100);
-            border-radius: 24px;
-            padding: 8px 14px;
+        .upload-btn {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            margin: 0 16px 4px;
-        }
-        #file-info .file-name {
+            gap: 6px;
             font-size: 0.8rem;
             font-weight: 600;
-            color: var(--ink-700);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            background: var(--ink-100);
+            color: var(--ink-800);
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--ink-200);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .upload-btn:hover {
+            background: var(--ink-200);
+        }
+        #file-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #e8f5e8;
+            color: #2a7a2a;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid #c3e6c3;
         }
         #clear-file-btn {
-            flex-shrink: 0;
             background: none;
-            border: 1.5px solid var(--ink-300);
-            border-radius: 20px;
-            color: var(--ink-500);
-            font-size: 0.72rem;
-            font-weight: 600;
-            padding: 3px 10px;
+            border: none;
+            color: #2a7a2a;
             cursor: pointer;
-            transition: all .15s;
+            font-weight: bold;
         }
-        #clear-file-btn:hover {
-            border-color: var(--bad);
-            color: var(--bad);
+
+        /* ── MAIN LAYOUT ── */
+        .main-layout {
+            display: flex;
+            height: calc(100vh - 60px);
+            overflow: hidden;
+        }
+        .sidebar {
+            width: 250px;
+            background: var(--white);
+            border-right: 2px solid var(--ink-200);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        .sidebar-title {
+            padding: 16px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--ink-500);
+            letter-spacing: 0.5px;
+        }
+        #blocks-container {
+            padding: 0 16px 16px;
+        }
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            background: var(--ink-050);
         }
 
         /* ── LOADER ── */
@@ -249,74 +205,32 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ── NAVEGACIÓN DE PESTAÑAS (MÓVIL COMO APP) ── */
+        /* ── NAVEGACIÓN DE PESTAÑAS ── */
         .tab-bar {
             display: flex;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
+            background: var(--white);
             border-bottom: 2px solid var(--ink-200);
-            padding: 0 8px;
+            padding: 0 16px;
             position: sticky;
-            top: 72px;
+            top: 0;
             z-index: 90;
-            overflow-x: auto;
-            scrollbar-width: none;
         }
-        .tab-bar::-webkit-scrollbar { display: none; }
         .tab-btn {
-            flex-shrink: 0;
-            padding: 14px 16px;
+            padding: 16px 20px;
             font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--ink-400);
+            font-weight: 700;
+            color: var(--ink-500);
             border: none;
             background: none;
             border-bottom: 3px solid transparent;
             margin-bottom: -2px;
             cursor: pointer;
             transition: color .2s, border-color .2s;
-            white-space: nowrap;
         }
-        .tab-btn:hover { color: var(--ink-700); }
+        .tab-btn:hover { color: var(--ink-800); }
         .tab-btn.active {
-            color: var(--ink-900);
-            border-bottom-color: var(--ink-900);
-        }
-
-        /* Responsive Mobile Bottom Nav */
-        @media (max-width: 639px) {
-            .tab-bar {
-                position: fixed;
-                bottom: 0;
-                top: auto;
-                left: 0;
-                right: 0;
-                z-index: 1000;
-                border-bottom: none;
-                border-top: 1px solid var(--ink-200);
-                box-shadow: 0 -4px 15px rgba(0,0,0,0.06);
-                justify-content: space-around;
-                padding: 0;
-                padding-bottom: env(safe-area-inset-bottom, 0px);
-            }
-            .tab-btn {
-                flex-grow: 1;
-                text-align: center;
-                padding: 16px 8px;
-                font-size: 0.78rem;
-                border-bottom: none;
-                border-top: 3px solid transparent;
-                margin-bottom: 0;
-                margin-top: -1px;
-            }
-            .tab-btn.active {
-                border-bottom-color: transparent;
-                border-top-color: var(--ink-900);
-                background: linear-gradient(to bottom, rgba(0,0,0,0.03), transparent);
-            }
-            body {
-                padding-bottom: 70px;
-            }
+            color: #2a7a2a;
+            border-bottom-color: #2a7a2a;
         }
 
         /* ── CONTENIDO DE PESTAÑAS ── */
@@ -667,108 +581,87 @@
 <body>
     <!-- HEADER -->
     <header class="app-header">
-        <h1>🌱 Camas Piloto</h1>
-        <p>Visualización de datos de riego y nutrición</p>
-    </header>
-
-    <!-- SECCIÓN DE CARGA -->
-    <section class="load-section">
-        <!-- Card 1: Repositorio mensual -->
-        <div class="load-card">
-            <div class="load-card-title">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M13.81 3H9.828a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 6.172 1H2.5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2M2.5 2h3.672a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 9.828 4h3.982a1 1 0 0 1 1 .999V13a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1"/>
-                    <path d="M13.5 10a.5.5 0 0 1-.5.5H8.707l1.354 1.354a.5.5 0 0 1-.708.708l-2.22-2.22a.5.5 0 0 1 0-.708L9.353 7.5a.5.5 0 1 1 .708.708L8.707 9.5H13a.5.5 0 0 1 .5.5"/>
-                </svg>
-                Seleccionar mes del repositorio
-            </div>
-            <p>Carga automática desde GitHub según el mes elegido.</p>
-            <select id="month-select">
-                <option value="" disabled selected>— Elige un mes —</option>
-                <option value="enero">Enero</option>
-                <option value="febrero">Febrero</option>
-                <option value="marzo">Marzo</option>
-                <option value="abril">Abril</option>
-                <option value="mayo">Mayo</option>
-                <option value="junio">Junio</option>
-                <option value="julio">Julio</option>
-                <option value="agosto">Agosto</option>
-                <option value="septiembre">Septiembre</option>
-                <option value="octubre">Octubre</option>
-                <option value="noviembre">Noviembre</option>
-                <option value="diciembre">Diciembre</option>
-            </select>
-            <div class="status-row">
-                <span id="repo-status-badge">Sin cargar</span>
-                <span id="repo-load-status-msg">Selecciona un mes para iniciar.</span>
-            </div>
+        <div class="header-left">
+            <h1>🌱 Camas Piloto</h1>
         </div>
-
-        <!-- Card 2: Carga manual -->
-        <div class="load-card">
-            <div class="load-card-title">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
-                    <path fill-rule="evenodd" d="M7.646 5.146a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708l2-2z"/>
-                    <path d="M4.406 3.342A5.53 5.53 0 0 1 8 2c2.69 0 4.923 2 5.166 4.579C14.758 6.804 16 8.137 16 9.773 16 11.569 14.502 13 12.687 13H3.781C1.708 13 0 11.366 0 9.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383zm.653.757c-.757.653-1.153 1.44-1.153 2.056v.448l-.445.049C2.064 6.805 1 7.952 1 9.318 1 10.785 2.23 12 3.781 12h8.906C13.98 12 15 10.988 15 9.773c0-1.12-1.02-2.228-2.313-2.228h-.5v-.5C12.188 4.825 10.328 3 8 3a4.53 4.53 0 0 0-2.941 1.1z"/>
-                </svg>
-                Subir archivo local
+        <div class="header-right">
+            <div class="header-control">
+                <span class="control-label">MES:</span>
+                <select id="month-select">
+                    <option value="" disabled selected>-- Elige un mes --</option>
+                    <option value="enero">Enero</option>
+                    <option value="febrero">Febrero</option>
+                    <option value="marzo">Marzo</option>
+                    <option value="abril">Abril</option>
+                    <option value="mayo">Mayo</option>
+                    <option value="junio">Junio</option>
+                    <option value="julio">Julio</option>
+                    <option value="agosto">Agosto</option>
+                    <option value="septiembre">Septiembre</option>
+                    <option value="octubre">Octubre</option>
+                    <option value="noviembre">Noviembre</option>
+                    <option value="diciembre">Diciembre</option>
+                </select>
             </div>
-            <p>Sube un Excel desde tu dispositivo (.xlsx, .xlsm, .xls).</p>
-            <label for="file-upload" class="file-drop-zone">
-                <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+            
+            <span id="repo-status-badge">SIN CARGAR</span>
+            
+            <label for="file-upload" class="upload-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                    <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
                 </svg>
-                <p>Toca para seleccionar archivo</p>
-                <span>Soporta: .xlsx, .xlsm, .xls</span>
+                Subir Local
                 <input id="file-upload" type="file" style="display:none" accept=".xlsx,.xlsm,.xls" />
             </label>
+
+            <!-- Pill de archivo cargado -->
+            <div id="file-info" style="display:none;">
+                <span class="file-name" id="file-name">julio.xlsm</span>
+                <button id="clear-file-btn">x</button>
+            </div>
         </div>
-    </section>
+    </header>
 
-    <!-- Pill de archivo cargado -->
-    <div id="file-info" style="display:none; align-items:center;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="flex-shrink:0; color:var(--ok);">
-            <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/>
-        </svg>
-        <span class="file-name" id="file-name">—</span>
-        <button id="clear-file-btn">Quitar</button>
-    </div>
+    <div class="main-layout">
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="sidebar-title">BLOQUES Y VÁLVULAS</div>
+            <div id="blocks-container"></div>
+        </aside>
 
-    <!-- Loader -->
-    <div id="loading" style="display:none;" class="loader-wrap">
-        <div class="loader"></div>
-        <span class="loader-text">Cargando datos…</span>
-    </div>
+        <!-- CONTENIDO PRINCIPAL -->
+        <main class="content-area">
+            <!-- PESTAÑAS -->
+            <nav class="tab-bar" id="tab-bar">
+                <button class="tab-btn active" data-tab="valves-view" id="valves-tab">• Vista por Válvula •</button>
+                <button class="tab-btn" data-tab="report-view" id="report-tab">Reporte Semanal</button>
+                <button class="tab-btn" data-tab="graphs-view" id="graphs-tab">Gráficas Comparativas</button>
+            </nav>
 
-    <!-- PESTAÑAS -->
-    <nav class="tab-bar" id="tab-bar">
-        <button class="tab-btn active" data-tab="valves-view" id="valves-tab">Vista por Válvula</button>
-        <button class="tab-btn" data-tab="report-view" id="report-tab">Reporte Semanal</button>
-        <button class="tab-btn" data-tab="graphs-view" id="graphs-tab">Gráficas</button>
-    </nav>
+            <!-- Loader -->
+            <div id="loading" style="display:none;" class="loader-wrap">
+                <div class="loader"></div>
+                <span class="loader-text">Cargando datos…</span>
+            </div>
 
-    <!-- CONTENIDO DE PESTAÑAS -->
-    <div id="valves-view" class="tab-pane active">
-        <div id="blocks-container"></div>
-        <div id="sheet-content-container"></div>
-    </div>
+            <!-- CONTENIDO DE PESTAÑAS -->
+            <div id="valves-view" class="tab-pane active">
+                <div id="sheet-content-container"></div>
+            </div>
 
-    <div id="report-view" class="tab-pane">
-        <div class="empty-state">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"/>
-            </svg>
-            <p>Carga un archivo Excel para generar el reporte semanal.</p>
-        </div>
-    </div>
+            <div id="report-view" class="tab-pane">
+                <div class="empty-state">
+                    <p>Carga un archivo Excel para generar el reporte semanal.</p>
+                </div>
+            </div>
 
-    <div id="graphs-view" class="tab-pane">
-        <div class="empty-state">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
-            </svg>
-            <p>Carga un archivo Excel para ver las gráficas comparativas.</p>
-        </div>
+            <div id="graphs-view" class="tab-pane">
+                <div class="empty-state">
+                    <p>Carga un archivo Excel para ver las gráficas comparativas.</p>
+                </div>
+            </div>
+        </main>
     </div>
 
     <footer>Desarrollado por Victor Fabian Intencipa</footer>
@@ -1058,6 +951,23 @@
         }
 
         /* ── CONTENIDO DE HOJA ── */
+        function findRowIndices(data) {
+            const findRowIdx = (...searchTerms) => data.findIndex(row => {
+                if (!row || !row[0]) return false;
+                const label = String(row[0]).toLowerCase();
+                return searchTerms.some(term => label.includes(term));
+            });
+            return {
+                ceEsp: findRowIdx('ce esperada', 'ce esperado'),
+                ceDre: findRowIdx('ce drenaje', 'ce emisor'),
+                phEsp: findRowIdx('ph esperada', 'ph esperado'),
+                phDre: findRowIdx('ph drenaje', 'ph emisor'),
+                ejecucion: findRowIdx('% ejecución', '% ejecucion', 'ejecución'),
+                no3: findRowIdx('n-no3', 'no3'),
+                vol: findRowIdx('volumen ejecutado', 'volumen de riego')
+            };
+        }
+
         function displaySheetContent(sheetName) {
             sheetContentContainer.innerHTML = '';
             activeCharts.forEach(c => c.destroy());
@@ -1065,15 +975,16 @@
             const ws = workbookData.Sheets[sheetName];
             const json = getSheetJson(ws);
             if (json.length > 0) {
-                createTable(sheetContentContainer, json);
-                createCharts(sheetContentContainer, json, sheetName);
+                const indices = findRowIndices(json);
+                createTable(sheetContentContainer, json, indices);
+                createCharts(sheetContentContainer, json, sheetName, indices);
             } else {
                 sheetContentContainer.innerHTML = '<div class="inline-alert info" style="margin:0 0 12px;">Esta hoja está vacía.</div>';
             }
         }
 
         /* ── TABLA ── */
-        function createTable(container, data) {
+        function createTable(container, data, indices) {
             const wrap = document.createElement('div');
             wrap.className = 'table-scroll-wrap';
             wrap.style.marginBottom = '16px';
@@ -1105,10 +1016,12 @@
                             }
                         } else {
                             let cur = NaN, tgt = NaN, apply = false;
-                            if (origIdx === 6) { cur = parseNumericValue(cell); tgt = parseNumericValue(data[5]?.[ci]); apply = true; }
-                            else if (origIdx === 8) { cur = parseNumericValue(cell); tgt = parseNumericValue(data[7]?.[ci]); apply = true; }
-                            else if (origIdx === 14) { cur = parseNumericValue(cell); if (isNaN(cur)) cur = 0; tgt = 100; apply = true; }
-                            if (origIdx === 5 || origIdx === 7) apply = false;
+                            if (origIdx === indices.ceDre) { cur = parseNumericValue(cell); tgt = parseNumericValue(data[indices.ceEsp]?.[ci]); apply = true; }
+                            else if (origIdx === indices.phDre) { cur = parseNumericValue(cell); tgt = parseNumericValue(data[indices.phEsp]?.[ci]); apply = true; }
+                            else if (origIdx === indices.ejecucion) { cur = parseNumericValue(cell); if (isNaN(cur)) cur = 0; tgt = 100; apply = true; }
+                            
+                            if (origIdx === indices.ceEsp || origIdx === indices.phEsp) apply = false;
+                            
                             if (apply && !isNaN(cur) && !isNaN(tgt) && tgt !== 0 && cur !== 0) {
                                 const pct = Math.abs(cur - tgt) / tgt;
                                 td.className = pct <= 0.10 ? 'cell-ok' : pct <= 0.20 ? 'cell-warn' : 'cell-bad';
@@ -1128,7 +1041,7 @@
         }
 
         /* ── GRÁFICAS POR VÁLVULA ── */
-        function createCharts(container, data, sheetName) {
+        function createCharts(container, data, sheetName, indices) {
             const match = sheetName ? sheetName.match(/\((\d+)\)/) : null;
             const valveNumber = match ? parseInt(match[1]) : null;
             const limits = getLimitsForValve(valveNumber);
@@ -1142,18 +1055,13 @@
                 if (isPct && Math.abs(n) <= 1 && v !== '0' && v !== 0) return n * 100;
                 return n;
             };
-            const configs = [
-                { id: 'ce', title: 'Conductividad de Drenaje', headerRowIndex: 4, dataRowIndices: [6], maxRow: 6, colors: ['#f97316'], yMin: 0, yMax: 4, yStep: 0.5, isPercentage: false },
-                { id: 'ph', title: 'pH de Drenaje', headerRowIndex: 4, dataRowIndices: [8], maxRow: 8, colors: ['#ec4899'], isPercentage: false },
-                { id: 'ejecucion', title: '% Ejecución', headerRowIndex: 4, dataRowIndices: [14], maxRow: 14, colors: ['#8b5cf6'], isPercentage: true },
-                { id: 'no3', title: 'N-NO3', headerRowIndex: 4, dataRowIndices: [15], maxRow: 15, colors: ['#f97316'], isPercentage: false }
-            ];
+            const configs = [];
             
-            // Buscar fila "Volumen Ejecutado" dinámicamente
-            const volRowIdx = data.findIndex(row => row && row[0] && String(row[0]).toLowerCase().includes('volumen ejecutado'));
-            if (volRowIdx !== -1) {
-                configs.push({ id: 'volumen', title: 'Volumen Ejecutado (L/Cama)', headerRowIndex: 4, dataRowIndices: [volRowIdx], maxRow: volRowIdx, colors: ['#0ea5e9'], isPercentage: false });
-            }
+            if (indices.ceDre !== -1) configs.push({ id: 'ce', title: 'Conductividad de Drenaje', headerRowIndex: 4, dataRowIndices: [indices.ceDre], maxRow: indices.ceDre, colors: ['#f97316'], isPercentage: false });
+            if (indices.phDre !== -1) configs.push({ id: 'ph', title: 'pH de Drenaje', headerRowIndex: 4, dataRowIndices: [indices.phDre], maxRow: indices.phDre, colors: ['#ec4899'], isPercentage: false });
+            if (indices.ejecucion !== -1) configs.push({ id: 'ejecucion', title: '% Ejecución', headerRowIndex: 4, dataRowIndices: [indices.ejecucion], maxRow: indices.ejecucion, colors: ['#8b5cf6'], isPercentage: true });
+            if (indices.no3 !== -1) configs.push({ id: 'no3', title: 'N-NO3', headerRowIndex: 4, dataRowIndices: [indices.no3], maxRow: indices.no3, colors: ['#f97316'], isPercentage: false });
+            if (indices.vol !== -1) configs.push({ id: 'volumen', title: 'Volumen Ejecutado (L/Cama)', headerRowIndex: 4, dataRowIndices: [indices.vol], maxRow: indices.vol, colors: ['#0ea5e9'], isPercentage: false });
 
             configs.forEach(cfg => {
                 if (data.length <= cfg.maxRow) return;
@@ -1267,15 +1175,16 @@
 
             sheetNames.forEach(sn => {
                 const ws = workbookData.Sheets[sn];
-                const json = cleanSheetData(XLSX.utils.sheet_to_json(ws, { header: 1, raw: false }));
+                const json = getSheetJson(ws);
+                const indices = findRowIndices(json);
                 const m = sn.match(/\((\d+)\)/);
                 const vn = m ? parseInt(m[1]) : null;
                 if (!vn) return;
                 const blocks = getBlockForValve(vn);
                 if (!blocks.length) return;
                 blocks.forEach(bn => { if (!blockData[bn]) blockData[bn] = { sum: 0, count: 0 }; });
-                if (json.length > 14) {
-                    const exRow = json[14];
+                if (indices.ejecucion !== -1 && json.length > indices.ejecucion) {
+                    const exRow = json[indices.ejecucion];
                     const last6 = exRow.slice(1).slice(-6);
                     last6.forEach(v => {
                         const n = parseNumericValue(v);
@@ -1285,11 +1194,11 @@
                         }
                     });
                 }
-                const ceVals = getValuesForFirstAlertSequence(json[6], json[5]);
+                const ceVals = (indices.ceDre !== -1 && indices.ceEsp !== -1) ? getValuesForFirstAlertSequence(json[indices.ceDre], json[indices.ceEsp]) : null;
                 if (ceVals && !redAlerts.ce.some(a => a.valveNumber === vn)) redAlerts.ce.push({ valveNumber: vn, values: ceVals });
-                const phVals = getValuesForFirstAlertSequence(json[8], json[7]);
+                const phVals = (indices.phDre !== -1 && indices.phEsp !== -1) ? getValuesForFirstAlertSequence(json[indices.phDre], json[indices.phEsp]) : null;
                 if (phVals && !redAlerts.ph.some(a => a.valveNumber === vn)) redAlerts.ph.push({ valveNumber: vn, values: phVals });
-                const ejVals = getValuesForFirstAlertSequence(json[14], null, 100);
+                const ejVals = (indices.ejecucion !== -1) ? getValuesForFirstAlertSequence(json[indices.ejecucion], null, 100) : null;
                 if (ejVals && !redAlerts.ejecucion.some(a => a.valveNumber === vn)) redAlerts.ejecucion.push({ valveNumber: vn, values: ejVals });
             });
 
@@ -1450,13 +1359,14 @@
             workbookData.SheetNames.forEach(sn => {
                 const ws = workbookData.Sheets[sn];
                 const json = getSheetJson(ws);
+                const indices = findRowIndices(json);
                 const m = sn.match(/\((\d+)\)/);
                 const vn = m ? parseInt(m[1]) : null;
                 if (!vn || !getBlockForValve(vn).length) return;
-                const ce = avgPct(json[6], json[5]);
-                const ph = avgPct(json[8], json[7]);
-                const ej = avgPct(json[14], null, 100, true);
-                const nno3 = avgRaw(json[15], true);
+                const ce = (indices.ceDre !== -1 && indices.ceEsp !== -1) ? avgPct(json[indices.ceDre], json[indices.ceEsp]) : NaN;
+                const ph = (indices.phDre !== -1 && indices.phEsp !== -1) ? avgPct(json[indices.phDre], json[indices.phEsp]) : NaN;
+                const ej = (indices.ejecucion !== -1) ? avgPct(json[indices.ejecucion], null, 100, true) : NaN;
+                const nno3 = (indices.no3 !== -1) ? avgRaw(json[indices.no3], true) : NaN;
                 allValveData[vn] = { ce, ph, ejecucion: ej, nno3 };
                 if (!isNaN(ce)) { totalCE.s += ce; totalCE.c++; }
                 if (!isNaN(ph)) { totalPH.s += ph; totalPH.c++; }
