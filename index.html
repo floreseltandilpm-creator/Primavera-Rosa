@@ -249,10 +249,11 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ── NAVEGACIÓN DE PESTAÑAS ── */
+        /* ── NAVEGACIÓN DE PESTAÑAS (MÓVIL COMO APP) ── */
         .tab-bar {
             display: flex;
-            background: var(--white);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
             border-bottom: 2px solid var(--ink-200);
             padding: 0 8px;
             position: sticky;
@@ -265,7 +266,7 @@
         .tab-btn {
             flex-shrink: 0;
             padding: 14px 16px;
-            font-size: 0.82rem;
+            font-size: 0.85rem;
             font-weight: 600;
             color: var(--ink-400);
             border: none;
@@ -273,13 +274,49 @@
             border-bottom: 3px solid transparent;
             margin-bottom: -2px;
             cursor: pointer;
-            transition: color .15s, border-color .15s;
+            transition: color .2s, border-color .2s;
             white-space: nowrap;
         }
         .tab-btn:hover { color: var(--ink-700); }
         .tab-btn.active {
             color: var(--ink-900);
             border-bottom-color: var(--ink-900);
+        }
+
+        /* Responsive Mobile Bottom Nav */
+        @media (max-width: 639px) {
+            .tab-bar {
+                position: fixed;
+                bottom: 0;
+                top: auto;
+                left: 0;
+                right: 0;
+                z-index: 1000;
+                border-bottom: none;
+                border-top: 1px solid var(--ink-200);
+                box-shadow: 0 -4px 15px rgba(0,0,0,0.06);
+                justify-content: space-around;
+                padding: 0;
+                padding-bottom: env(safe-area-inset-bottom, 0px);
+            }
+            .tab-btn {
+                flex-grow: 1;
+                text-align: center;
+                padding: 16px 8px;
+                font-size: 0.78rem;
+                border-bottom: none;
+                border-top: 3px solid transparent;
+                margin-bottom: 0;
+                margin-top: -1px;
+            }
+            .tab-btn.active {
+                border-bottom-color: transparent;
+                border-top-color: var(--ink-900);
+                background: linear-gradient(to bottom, rgba(0,0,0,0.03), transparent);
+            }
+            body {
+                padding-bottom: 70px;
+            }
         }
 
         /* ── CONTENIDO DE PESTAÑAS ── */
@@ -289,10 +326,16 @@
         /* ── BLOQUES (tarjetas de válvulas) ── */
         .block-card {
             background: var(--white);
-            border: 1.5px solid var(--ink-200);
-            border-radius: var(--radius-md);
-            margin-bottom: 12px;
+            border: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+            border-radius: var(--radius-lg);
+            margin-bottom: 16px;
             overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .block-card:hover {
+            box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+            transform: translateY(-2px);
         }
         .block-header {
             background: var(--ink-800);
@@ -392,9 +435,14 @@
         }
         .chart-card {
             background: var(--white);
-            border: 1.5px solid var(--ink-200);
-            border-radius: var(--radius-md);
-            padding: 14px;
+            border: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+            border-radius: var(--radius-lg);
+            padding: 16px;
+            transition: box-shadow 0.2s;
+        }
+        .chart-card:hover {
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
         }
         .chart-container {
             position: relative;
@@ -928,6 +976,17 @@
         const cleanSumaText = v => typeof v === 'string' ? v.replace(/^[Ss][uú]ma\s+de\s+/i, '').replace(/^[Ss][uú]ma\s+/i, '') : v;
         const cleanSheetData = d => Array.isArray(d) ? d.map(r => Array.isArray(r) ? r.map(cleanSumaText) : r) : d;
 
+        function getSheetJson(ws) {
+            if (ws && ws['!ref']) {
+                try {
+                    const range = XLSX.utils.decode_range(ws['!ref']);
+                    range.e.c = Math.max(range.e.c, 150); // Forzar lectura de columnas adicionales
+                    ws['!ref'] = XLSX.utils.encode_range(range);
+                } catch (e) {}
+            }
+            return cleanSheetData(XLSX.utils.sheet_to_json(ws, { header: 1, raw: false }));
+        }
+
         function getBlockForValve(v) {
             const m = { 1:'Bloque 50',2:'Bloque 50',3:'Bloque 50',12:'Bloque 51',13:'Bloque 51',14:'Bloque 51',4:'Bloque 52',5:'Bloque 52',6:'Bloque 52',7:'Bloque 52',8:'Bloque 52',15:'Bloque 53',16:'Bloque 53',17:'Bloque 53',9:'Bloque 54',10:'Bloque 54',11:'Bloque 54',18:'Bloque 55',19:'Bloque 55',20:'Bloque 55',21:'Bloque 56',22:'Bloque 56',23:'Bloque 56',33:'Bloque 57',34:'Bloque 57',35:'Bloque 57',24:'Bloque 58',25:'Bloque 58',26:'Bloque 58',36:'Bloque 59',37:'Bloque 59',38:'Bloque 59',27:'Bloque 60',28:'Bloque 60',29:'Bloque 60',39:'Bloque 61',40:'Bloque 61',41:'Bloque 61',30:'Bloque 62',31:'Bloque 62',32:'Bloque 62',42:'Bloque 63',43:'Bloque 63',44:'Bloque 63',45:'Bloque 64',46:'Bloque 64',47:'Bloque 64',48:'Bloque 65',49:'Bloque 65',50:'Bloque 65',51:'Bloque 66',52:'Bloque 66',53:'Bloque 66' };
             return m[v] ? [m[v]] : [];
@@ -1004,7 +1063,7 @@
             activeCharts.forEach(c => c.destroy());
             activeCharts = [];
             const ws = workbookData.Sheets[sheetName];
-            const json = cleanSheetData(XLSX.utils.sheet_to_json(ws, { header: 1, raw: false }));
+            const json = getSheetJson(ws);
             if (json.length > 0) {
                 createTable(sheetContentContainer, json);
                 createCharts(sheetContentContainer, json, sheetName);
@@ -1084,20 +1143,32 @@
                 return n;
             };
             const configs = [
-                { id: 'ce', title: 'Conductividad Eléctrica', headerRowIndex: 4, dataRowIndices: [5, 6], maxRow: 6, colors: ['#0ea5e9', '#f97316'], yMin: 0, yMax: 4, yStep: 0.5, isPercentage: false },
-                { id: 'ph', title: 'pH', headerRowIndex: 4, dataRowIndices: [7, 8], maxRow: 8, colors: ['#10b981', '#ec4899'], isPercentage: false },
+                { id: 'ce', title: 'Conductividad de Drenaje', headerRowIndex: 4, dataRowIndices: [6], maxRow: 6, colors: ['#f97316'], yMin: 0, yMax: 4, yStep: 0.5, isPercentage: false },
+                { id: 'ph', title: 'pH de Drenaje', headerRowIndex: 4, dataRowIndices: [8], maxRow: 8, colors: ['#ec4899'], isPercentage: false },
                 { id: 'ejecucion', title: '% Ejecución', headerRowIndex: 4, dataRowIndices: [14], maxRow: 14, colors: ['#8b5cf6'], isPercentage: true },
                 { id: 'no3', title: 'N-NO3', headerRowIndex: 4, dataRowIndices: [15], maxRow: 15, colors: ['#f97316'], isPercentage: false }
             ];
+            
+            // Buscar fila "Volumen Ejecutado" dinámicamente
+            const volRowIdx = data.findIndex(row => row && row[0] && String(row[0]).toLowerCase().includes('volumen ejecutado'));
+            if (volRowIdx !== -1) {
+                configs.push({ id: 'volumen', title: 'Volumen Ejecutado (L/Cama)', headerRowIndex: 4, dataRowIndices: [volRowIdx], maxRow: volRowIdx, colors: ['#0ea5e9'], isPercentage: false });
+            }
+
             configs.forEach(cfg => {
                 if (data.length <= cfg.maxRow) return;
                 const hRow = data[cfg.headerRowIndex];
                 const dRows = cfg.dataRowIndices.map(i => data[i]);
                 if (!hRow || dRows.some(r => !r)) return;
                 const labels = [], dsData = dRows.map(() => []);
-                for (let i = 1; i < hRow.length; i++) {
-                    if (hRow[i] === null || hRow[i] === undefined || String(hRow[i]).trim() === '') continue;
-                    labels.push(String(hRow[i]));
+                
+                // Fijar límite de columnas máximo para evitar que el Excel corte las fechas vacías
+                const maxCol = Math.max(hRow?.length || 0, ...dRows.map(r => r ? r.length : 0));
+                for (let i = 1; i < maxCol; i++) {
+                    const isAllEmpty = dRows.every(row => row[i] === null || row[i] === undefined || String(row[i]).trim() === '');
+                    if (isAllEmpty) continue;
+                    let hVal = (hRow && hRow[i] !== null && hRow[i] !== undefined) ? String(hRow[i]).trim() : '';
+                    labels.push(hVal !== '' ? hVal : `S${i}`);
                     dRows.forEach((row, j) => dsData[j].push(cleanValue(row[i], cfg.isPercentage)));
                 }
                 const datasets = dRows.map((row, i) => ({
@@ -1378,7 +1449,7 @@
 
             workbookData.SheetNames.forEach(sn => {
                 const ws = workbookData.Sheets[sn];
-                const json = cleanSheetData(XLSX.utils.sheet_to_json(ws, { header: 1, raw: false }));
+                const json = getSheetJson(ws);
                 const m = sn.match(/\((\d+)\)/);
                 const vn = m ? parseInt(m[1]) : null;
                 if (!vn || !getBlockForValve(vn).length) return;
