@@ -579,7 +579,6 @@
 </head>
 
 <body>
-    <!-- HEADER -->
     <header class="app-header">
         <div class="header-left">
             <h1>🌱 Camas Piloto</h1>
@@ -615,7 +614,6 @@
                 <input id="file-upload" type="file" style="display:none" accept=".xlsx,.xlsm,.xls" />
             </label>
 
-            <!-- Pill de archivo cargado -->
             <div id="file-info" style="display:none;">
                 <span class="file-name" id="file-name">julio.xlsm</span>
                 <button id="clear-file-btn">x</button>
@@ -624,28 +622,23 @@
     </header>
 
     <div class="main-layout">
-        <!-- SIDEBAR -->
         <aside class="sidebar">
             <div class="sidebar-title">BLOQUES Y VÁLVULAS</div>
             <div id="blocks-container"></div>
         </aside>
 
-        <!-- CONTENIDO PRINCIPAL -->
         <main class="content-area">
-            <!-- PESTAÑAS -->
             <nav class="tab-bar" id="tab-bar">
                 <button class="tab-btn active" data-tab="valves-view" id="valves-tab">• Vista por Válvula •</button>
                 <button class="tab-btn" data-tab="report-view" id="report-tab">Reporte Semanal</button>
                 <button class="tab-btn" data-tab="graphs-view" id="graphs-tab">Gráficas Comparativas</button>
             </nav>
 
-            <!-- Loader -->
             <div id="loading" style="display:none;" class="loader-wrap">
                 <div class="loader"></div>
                 <span class="loader-text">Cargando datos…</span>
             </div>
 
-            <!-- CONTENIDO DE PESTAÑAS -->
             <div id="valves-view" class="tab-pane active">
                 <div id="sheet-content-container"></div>
             </div>
@@ -744,7 +737,7 @@
         async function loadExcelByMonth(month) {
             repoStatusBadge.textContent = 'Cargando…';
             repoStatusBadge.classList.remove('loaded');
-            repoStatusMsg.textContent = `Buscando archivo de ${month}…`;
+            if(repoStatusMsg) repoStatusMsg.textContent = `Buscando archivo de ${month}…`;
             clearFile(false);
             loadingEl.style.display = 'flex';
 
@@ -771,10 +764,10 @@
                 saveFileToDB(result.fileName, result.buf);
                 repoStatusBadge.textContent = '✓ Cargado';
                 repoStatusBadge.classList.add('loaded');
-                repoStatusMsg.textContent = `Archivo ${result.fileName} listo.`;
+                if(repoStatusMsg) repoStatusMsg.textContent = `Archivo ${result.fileName} listo.`;
             } catch (err) {
                 repoStatusBadge.textContent = 'Error';
-                repoStatusMsg.textContent = `No se encontró el archivo ${month} (.xlsx/.xlsm) en GitHub. Verifica haberlo subido.`;
+                if(repoStatusMsg) repoStatusMsg.textContent = `No se encontró el archivo ${month} (.xlsx/.xlsm) en GitHub. Verifica haberlo subido.`;
             } finally {
                 loadingEl.style.display = 'none';
             }
@@ -957,14 +950,21 @@
                 const label = String(row[0]).toLowerCase();
                 return searchTerms.some(term => label.includes(term));
             });
+            // Modificación: separar correctamente Emisor de Drenaje para las gráficas
             return {
                 ceEsp: findRowIdx('ce esperada', 'ce esperado'),
-                ceDre: findRowIdx('ce drenaje', 'ce emisor'),
+                ceDre: findRowIdx('ce drenaje', 'ce emisor'), // Mantenido para lógica de reporte 
                 phEsp: findRowIdx('ph esperada', 'ph esperado'),
-                phDre: findRowIdx('ph drenaje', 'ph emisor'),
+                phDre: findRowIdx('ph drenaje', 'ph emisor'), // Mantenido para lógica de reporte 
                 ejecucion: findRowIdx('% ejecución', '% ejecucion', 'ejecución'),
                 no3: findRowIdx('n-no3', 'no3'),
-                vol: findRowIdx('volumen ejecutado', 'volumen de riego')
+                vol: findRowIdx('volumen ejecutado', 'volumen de riego'),
+                
+                // Nuevas variables estrictas para graficar AMBOS
+                ceDrenajeReal: findRowIdx('ce drenaje'),
+                ceEmisorReal: findRowIdx('ce emisor'),
+                phDrenajeReal: findRowIdx('ph drenaje'),
+                phEmisorReal: findRowIdx('ph emisor')
             };
         }
 
@@ -1057,8 +1057,30 @@
             };
             const configs = [];
             
-            if (indices.ceDre !== -1) configs.push({ id: 'ce', title: 'Conductividad de Drenaje', headerRowIndex: 4, dataRowIndices: [indices.ceDre], maxRow: indices.ceDre, colors: ['#f97316'], isPercentage: false });
-            if (indices.phDre !== -1) configs.push({ id: 'ph', title: 'pH de Drenaje', headerRowIndex: 4, dataRowIndices: [indices.phDre], maxRow: indices.phDre, colors: ['#ec4899'], isPercentage: false });
+            // Modificación: Gráfica de CE permitiendo ambas filas (Emisor y Drenaje)
+            const ceRows = [];
+            if (indices.ceEmisorReal !== -1) ceRows.push(indices.ceEmisorReal);
+            if (indices.ceDrenajeReal !== -1) ceRows.push(indices.ceDrenajeReal);
+            
+            if (ceRows.length > 0) {
+                configs.push({ id: 'ce', title: 'Conductividad Eléctrica', headerRowIndex: 4, dataRowIndices: ceRows, maxRow: Math.max(...ceRows), colors: ['#0ea5e9', '#f97316'], isPercentage: false });
+            } else if (indices.ceDre !== -1) {
+                // Fallback por si la hoja no tiene ninguna pero coincide en la lógica anterior
+                configs.push({ id: 'ce', title: 'Conductividad Eléctrica', headerRowIndex: 4, dataRowIndices: [indices.ceDre], maxRow: indices.ceDre, colors: ['#f97316'], isPercentage: false });
+            }
+
+            // Modificación: Gráfica de pH permitiendo ambas filas (Emisor y Drenaje)
+            const phRows = [];
+            if (indices.phEmisorReal !== -1) phRows.push(indices.phEmisorReal);
+            if (indices.phDrenajeReal !== -1) phRows.push(indices.phDrenajeReal);
+            
+            if (phRows.length > 0) {
+                configs.push({ id: 'ph', title: 'pH', headerRowIndex: 4, dataRowIndices: phRows, maxRow: Math.max(...phRows), colors: ['#8b5cf6', '#ec4899'], isPercentage: false });
+            } else if (indices.phDre !== -1) {
+                // Fallback
+                configs.push({ id: 'ph', title: 'pH', headerRowIndex: 4, dataRowIndices: [indices.phDre], maxRow: indices.phDre, colors: ['#ec4899'], isPercentage: false });
+            }
+
             if (indices.ejecucion !== -1) configs.push({ id: 'ejecucion', title: '% Ejecución', headerRowIndex: 4, dataRowIndices: [indices.ejecucion], maxRow: indices.ejecucion, colors: ['#8b5cf6'], isPercentage: true });
             if (indices.no3 !== -1) configs.push({ id: 'no3', title: 'N-NO3', headerRowIndex: 4, dataRowIndices: [indices.no3], maxRow: indices.no3, colors: ['#f97316'], isPercentage: false });
             if (indices.vol !== -1) configs.push({ id: 'volumen', title: 'Volumen Ejecutado (L/Cama)', headerRowIndex: 4, dataRowIndices: [indices.vol], maxRow: indices.vol, colors: ['#0ea5e9'], isPercentage: false });
