@@ -575,6 +575,72 @@
             color: var(--ink-400);
             font-weight: 500;
         }
+
+        /* ── ESTILOS DE IMPRESIÓN (PDF) ── */
+        @media print {
+            /* Ocultar elementos no deseados */
+            .app-header, 
+            .sidebar, 
+            .tab-bar, 
+            #loading,
+            footer {
+                display: none !important;
+            }
+
+            /* Forzar el layout para ocupar toda la página */
+            body, .main-layout, .content-area {
+                height: auto !important;
+                overflow: visible !important;
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                display: block !important;
+            }
+
+            /* La pestaña activa (Válvula) debe ocupar 1 página exacta */
+            #valves-view {
+                display: block !important;
+                page-break-after: always;
+            }
+
+            /* Ocultar otras pestañas aunque tengan "active" */
+            #report-view, #graphs-view {
+                display: none !important;
+            }
+
+            /* Ajustar tamaño de gráficas para que quepan en la página */
+            .charts-grid {
+                display: flex !important;
+                flex-wrap: wrap !important;
+                gap: 10px !important;
+                page-break-inside: avoid;
+            }
+            .chart-card {
+                flex: 1 1 48% !important; /* Dos columnas de gráficas */
+                margin-bottom: 10px !important;
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+            .chart-container {
+                height: 220px !important;
+            }
+            
+            /* Ajustar tabla */
+            .table-scroll-wrap {
+                overflow: visible !important;
+                margin-bottom: 20px !important;
+            }
+            .data-table th, .data-table td {
+                padding: 4px 6px !important;
+                font-size: 0.65rem !important;
+            }
+            
+            /* Forzar colores de fondo de Tailwind/Chartjs en impresión */
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
     </style>
 </head>
 
@@ -618,6 +684,15 @@
                 <span class="file-name" id="file-name">julio.xlsm</span>
                 <button id="clear-file-btn">x</button>
             </div>
+
+            <!-- Botón de Imprimir -->
+            <button id="print-btn" class="upload-btn" style="background:#22c55e; color:white; border-color:#16a34a;" onclick="window.print()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M5 1a2 2 0 0 0-2 2v1h10V3a2 2 0 0 0-2-2H5zm6 8H5a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1z"/>
+                    <path d="M0 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-1v-2a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2H2a2 2 0 0 1-2-2V7zm2.5 1a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
+                </svg>
+                Imprimir PDF
+            </button>
         </div>
     </header>
 
@@ -964,7 +1039,9 @@
                 ceDrenajeReal: findRowIdx('ce drenaje'),
                 ceEmisorReal: findRowIdx('ce emisor'),
                 phDrenajeReal: findRowIdx('ph drenaje'),
-                phEmisorReal: findRowIdx('ph emisor')
+                phEmisorReal: findRowIdx('ph emisor'),
+
+                pctDrenaje: findRowIdx('% drenaje', 'porcentaje de drenaje')
             };
         }
 
@@ -1002,6 +1079,10 @@
                 const origIdx = ri + 1;
                 if (!rowData || rowData.length === 0) return;
                 const rowLabel = rowData[0] ? String(rowData[0]).trim().toLowerCase() : '';
+                
+                // Ocultar filas especificadas
+                if (rowLabel.includes('volumen 2') || rowLabel.includes('volumen 3') || rowLabel === 'evt') return;
+
                 const isDrenaje = rowLabel.includes('%') && rowLabel.includes('drenaje');
                 const tr = document.createElement('tr');
                 rowData.forEach((cell, ci) => {
@@ -1084,6 +1165,7 @@
             if (indices.ejecucion !== -1) configs.push({ id: 'ejecucion', title: '% Ejecución', headerRowIndex: 4, dataRowIndices: [indices.ejecucion], maxRow: indices.ejecucion, colors: ['#8b5cf6'], isPercentage: true });
             if (indices.no3 !== -1) configs.push({ id: 'no3', title: 'N-NO3', headerRowIndex: 4, dataRowIndices: [indices.no3], maxRow: indices.no3, colors: ['#f97316'], isPercentage: false });
             if (indices.vol !== -1) configs.push({ id: 'volumen', title: 'Volumen Ejecutado (L/Cama)', headerRowIndex: 4, dataRowIndices: [indices.vol], maxRow: indices.vol, colors: ['#0ea5e9'], isPercentage: false });
+            if (indices.pctDrenaje !== -1) configs.push({ id: 'pct_drenaje', title: '% Drenaje', headerRowIndex: 4, dataRowIndices: [indices.pctDrenaje], maxRow: indices.pctDrenaje, colors: ['#22c55e'], isPercentage: true });
 
             configs.forEach(cfg => {
                 if (data.length <= cfg.maxRow) return;
