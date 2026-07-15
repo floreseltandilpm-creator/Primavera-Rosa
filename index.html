@@ -1576,20 +1576,11 @@
             mkBarChart('Cumplimiento Conductividad Eléctrica', sortedValves.map(v => allValveData[v].ce), getColors(sortedValves.map(v => allValveData[v].ce)), 'Cumplimiento (%)', 150, 90, 110);
             mkBarChart('Cumplimiento pH', sortedValves.map(v => allValveData[v].ph), getColors(sortedValves.map(v => allValveData[v].ph)), 'Cumplimiento (%)', 150, 90, 110);
             mkBarChart('Valor Promedio N-NO3', sortedValves.map(v => allValveData[v].nno3), getNNO3Colors(sortedValves.map(v => allValveData[v].nno3), sortedValves), 'Valor Promedio', 300, null, null);
+        }
+    </script>
     <div id="print-container" style="display: none;"></div>
     
     <script>
-        // Data Global
-        const getBlockForValve = v => {
-            if (v >= 1 && v <= 11) return ['B1.1'];
-            if (v >= 12 && v <= 17) return ['B1.2'];
-            if (v >= 21 && v <= 32) return ['B2.1'];
-            if (v >= 33 && v <= 37) return ['B2.2'];
-            if (v >= 38 && v <= 46) return ['B3.1'];
-            if ((v >= 47 && v <= 49) || (v >= 50 && v <= 53) || (v >= 18 && v <= 20)) return ['B3.2'];
-            return [];
-        };
-
         async function generatePrintAllReport() {
             if (!workbookData) return alert('Por favor, carga un archivo Excel primero.');
 
