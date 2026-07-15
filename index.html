@@ -576,66 +576,99 @@
             font-weight: 500;
         }
 
-        /* ── ESTILOS DE IMPRESIÓN (PDF) ── */
+        /* ── ESTILOS DE IMPRESIÓN MASIVA (PDF) ── */
         @media print {
-            /* Ocultar elementos no deseados */
-            .app-header, 
-            .sidebar, 
-            .tab-bar, 
-            #loading,
-            footer {
+            .app-header, .sidebar, .tab-bar, #loading, footer, .content-area {
                 display: none !important;
             }
-
-            /* Forzar el layout para ocupar toda la página */
-            body, .main-layout, .content-area {
-                height: auto !important;
-                overflow: visible !important;
+            body {
                 background: white !important;
-                padding: 0 !important;
                 margin: 0 !important;
-                display: block !important;
+                padding: 0 !important;
             }
-
-            /* La pestaña activa (Válvula) debe ocupar 1 página exacta */
-            #valves-view {
+            #print-container {
                 display: block !important;
+                width: 100%;
+            }
+            
+            .print-page {
                 page-break-after: always;
+                display: flex;
+                flex-direction: column;
+                height: 98vh; /* Maximiza el uso de la pagina */
+                padding: 10px;
+                box-sizing: border-box;
+            }
+            .print-page:last-child {
+                page-break-after: auto;
             }
 
-            /* Ocultar otras pestañas aunque tengan "active" */
-            #report-view, #graphs-view {
-                display: none !important;
+            /* Tabla de Encabezado Formal */
+            .print-header-table {
+                width: 100%;
+                border-collapse: collapse;
+                border: 2px solid black;
+                font-family: Arial, sans-serif;
+                font-size: 8pt;
+                margin-bottom: 5px;
+            }
+            .print-header-table td {
+                border: 1px solid black;
+                padding: 3px;
+                text-align: center;
+                vertical-align: middle;
+            }
+            .title-cell {
+                font-weight: bold;
+                font-size: 9pt;
+                text-align: left !important;
+                padding-left: 10px !important;
+            }
+            
+            /* Contenedor principal de la hoja impresa */
+            .print-content-wrapper {
+                display: flex;
+                flex-direction: column;
+                flex-grow: 1;
+                overflow: hidden;
             }
 
-            /* Ajustar tamaño de gráficas para que quepan en la página */
+            /* Tabla de Datos */
+            .table-scroll-wrap {
+                margin-bottom: 5px !important;
+                flex-shrink: 0; /* No encoger la tabla */
+            }
+            .data-table {
+                border: 1px solid black !important;
+            }
+            .data-table th, .data-table td {
+                border: 1px solid black !important;
+                padding: 2px 3px !important;
+                font-size: 0.55rem !important; /* Más pequeña para no robar espacio */
+            }
+
+            /* Gráficas al máximo */
             .charts-grid {
                 display: flex !important;
                 flex-wrap: wrap !important;
-                gap: 10px !important;
-                page-break-inside: avoid;
+                flex-grow: 1 !important;
+                gap: 5px !important;
+                align-content: stretch; /* Estirar items para llenar espacio */
             }
             .chart-card {
-                flex: 1 1 48% !important; /* Dos columnas de gráficas */
-                margin-bottom: 10px !important;
-                break-inside: avoid;
-                page-break-inside: avoid;
+                flex: 1 1 48% !important;
+                display: flex;
+                flex-direction: column;
+                margin: 0 !important;
+                padding: 5px !important;
+                border: 1px solid #ccc !important;
             }
             .chart-container {
-                height: 220px !important;
+                flex-grow: 1 !important;
+                height: auto !important;
+                min-height: 150px; /* Asegura que la grafica crezca */
             }
-            
-            /* Ajustar tabla */
-            .table-scroll-wrap {
-                overflow: visible !important;
-                margin-bottom: 20px !important;
-            }
-            .data-table th, .data-table td {
-                padding: 4px 6px !important;
-                font-size: 0.65rem !important;
-            }
-            
-            /* Forzar colores de fondo de Tailwind/Chartjs en impresión */
+
             * {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
@@ -685,13 +718,13 @@
                 <button id="clear-file-btn">x</button>
             </div>
 
-            <!-- Botón de Imprimir -->
-            <button id="print-btn" class="upload-btn" style="background:#22c55e; color:white; border-color:#16a34a;" onclick="window.print()">
+            <!-- Botón de Imprimir Masivo -->
+            <button id="print-btn" class="upload-btn" style="background:#22c55e; color:white; border-color:#16a34a;" onclick="generatePrintAllReport()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                     <path d="M5 1a2 2 0 0 0-2 2v1h10V3a2 2 0 0 0-2-2H5zm6 8H5a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1z"/>
                     <path d="M0 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-1v-2a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2H2a2 2 0 0 1-2-2V7zm2.5 1a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
                 </svg>
-                Imprimir PDF
+                Imprimir Todas (PDF)
             </button>
         </div>
     </header>
@@ -1543,6 +1576,111 @@
             mkBarChart('Cumplimiento Conductividad Eléctrica', sortedValves.map(v => allValveData[v].ce), getColors(sortedValves.map(v => allValveData[v].ce)), 'Cumplimiento (%)', 150, 90, 110);
             mkBarChart('Cumplimiento pH', sortedValves.map(v => allValveData[v].ph), getColors(sortedValves.map(v => allValveData[v].ph)), 'Cumplimiento (%)', 150, 90, 110);
             mkBarChart('Valor Promedio N-NO3', sortedValves.map(v => allValveData[v].nno3), getNNO3Colors(sortedValves.map(v => allValveData[v].nno3), sortedValves), 'Valor Promedio', 300, null, null);
+    <div id="print-container" style="display: none;"></div>
+    
+    <script>
+        // Data Global
+        const getBlockForValve = v => {
+            if (v >= 1 && v <= 11) return ['B1.1'];
+            if (v >= 12 && v <= 17) return ['B1.2'];
+            if (v >= 21 && v <= 32) return ['B2.1'];
+            if (v >= 33 && v <= 37) return ['B2.2'];
+            if (v >= 38 && v <= 46) return ['B3.1'];
+            if ((v >= 47 && v <= 49) || (v >= 50 && v <= 53) || (v >= 18 && v <= 20)) return ['B3.2'];
+            return [];
+        };
+
+        async function generatePrintAllReport() {
+            if (!workbookData) return alert('Por favor, carga un archivo Excel primero.');
+
+            const printBtn = document.getElementById('print-btn');
+            const originalText = printBtn.innerHTML;
+            printBtn.innerHTML = 'Preparando Páginas...';
+            printBtn.disabled = true;
+
+            const printContainer = document.getElementById('print-container');
+            printContainer.innerHTML = '';
+            
+            // Obtener hojas que corresponden a válvulas
+            const sheetNames = workbookData.SheetNames.filter(name => {
+                const m = name.match(/\((\d+)\)/);
+                return m && getBlockForValve(parseInt(m[1])).length > 0;
+            });
+            
+            // Re-ordenar válvulas por bloque y número
+            sheetNames.sort((a, b) => {
+                const va = parseInt(a.match(/\((\d+)\)/)[1]);
+                const vb = parseInt(b.match(/\((\d+)\)/)[1]);
+                return va - vb;
+            });
+
+            const monthSelect = document.getElementById('month-select');
+            const monthText = monthSelect.options[monthSelect.selectedIndex]?.text || '';
+            const year = new Date().getFullYear();
+
+            // Generar contenedor para cada hoja (válvula)
+            sheetNames.forEach(sheetName => {
+                const match = sheetName.match(/\((\d+)\)/);
+                const valveNumber = match ? parseInt(match[1]) : null;
+                const block = valveNumber ? getBlockForValve(valveNumber).join('-') : '';
+                
+                const page = document.createElement('div');
+                page.className = 'print-page';
+                
+                // Encabezado formal de impresión
+                page.innerHTML = `
+                    <table class="print-header-table">
+                        <tr>
+                            <td rowspan="2" style="font-size: 11pt; font-weight: bold; width: 15%;">TANDIL</td>
+                            <td colspan="4" class="title-cell" style="width: 70%;">
+                                FLORES EL TANDIL S.A.S - SEDE PRIMAVERA<br>
+                                CONTROL DEL FERTIRRIEGO ROSA HIDROPONÍA<br>
+                                PRODUCCIÓN ROSA
+                            </td>
+                            <td style="width: 15%;">Versión 2<br>Diciembre 2023<br>Página 1 de 1</td>
+                        </tr>
+                        <tr style="background-color: #f3f4f6;">
+                            <td>AÑO: <strong>${year}</strong></td>
+                            <td>MES: <strong>${monthText.toUpperCase()}</strong></td>
+                            <td>BLOQUE: <strong>${block}</strong></td>
+                            <td>VÁLVULA: <strong>${valveNumber}</strong></td>
+                        </tr>
+                    </table>
+                `;
+
+                const ws = workbookData.Sheets[sheetName];
+                const json = getSheetJson(ws);
+                if (json.length > 0) {
+                    const indices = findRowIndices(json);
+                    
+                    const contentWrapper = document.createElement('div');
+                    contentWrapper.className = 'print-content-wrapper';
+                    
+                    createTable(contentWrapper, json, indices);
+                    createCharts(contentWrapper, json, sheetName, indices);
+                    
+                    page.appendChild(contentWrapper);
+                } else {
+                    const empty = document.createElement('div');
+                    empty.textContent = "Hoja vacía o sin formato válido.";
+                    page.appendChild(empty);
+                }
+                
+                printContainer.appendChild(page);
+            });
+
+            // Permitir que Chart.js dibuje todas las gráficas generadas en el DOM oculto
+            await new Promise(r => setTimeout(r, 1200));
+            
+            // Disparar ventana de impresión
+            window.print();
+            
+            // Retornar al estado original
+            setTimeout(() => {
+                printContainer.innerHTML = '';
+                printBtn.innerHTML = originalText;
+                printBtn.disabled = false;
+            }, 1000);
         }
 
         /* ── RECUPERAR SESIÓN ── */
