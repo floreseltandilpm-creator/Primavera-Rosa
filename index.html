@@ -871,6 +871,7 @@
 
         let activeCharts = [];
         let workbookData = null;
+        let weeklyCEChart = null;
 
         if (window.ChartAnnotation) Chart.register(window.ChartAnnotation);
 
@@ -883,6 +884,7 @@
                 document.getElementById(btn.dataset.tab).classList.add('active');
                 if (btn.dataset.tab === 'report-view' && workbookData) generateWeeklyReport();
                 if (btn.dataset.tab === 'graphs-view' && workbookData) generateGraphsReport();
+                if (btn.dataset.tab === 'ce-weekly-view' && workbookData) renderWeeklyCEChart();
             });
         });
 
@@ -927,7 +929,7 @@
             })).catch(() => {});
         }
 
-        /* ── CARGA DESDE EL SERVIDOR (GITHUB PAGES) ── */
+        /* ── CARGA DESDE EL SERVIDOR ── */
         async function loadExcelByMonth(month) {
             repoStatusBadge.textContent = 'Cargando…';
             repoStatusBadge.classList.remove('loaded');
@@ -937,7 +939,7 @@
 
             const tryFetch = async (ext) => {
                 const fileName = `${month}${ext}`;
-                const r = await fetch(`./${fileName}?t=${new Date().getTime()}`); // Cache buster
+                const r = await fetch(`./${fileName}?t=${new Date().getTime()}`);
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 return { buf: await r.arrayBuffer(), fileName };
             };
@@ -961,7 +963,7 @@
                 if(repoStatusMsg) repoStatusMsg.textContent = `Archivo ${result.fileName} listo.`;
             } catch (err) {
                 repoStatusBadge.textContent = 'Error';
-                if(repoStatusMsg) repoStatusMsg.textContent = `No se encontró el archivo ${month} (.xlsx/.xlsm) en GitHub. Verifica haberlo subido.`;
+                if(repoStatusMsg) repoStatusMsg.textContent = `No se encontró el archivo ${month} en GitHub.`;
             } finally {
                 loadingEl.style.display = 'none';
             }
@@ -981,7 +983,7 @@
                     saveFileToDB(file.name, buf);
                 } catch (err) {
                     console.error(err);
-                    showInlineError(sheetContentContainer, 'Error al procesar el archivo. Asegúrate de que es un Excel válido.');
+                    showInlineError(sheetContentContainer, 'Error al procesar el archivo.');
                 } finally {
                     loadingEl.style.display = 'none';
                 }
@@ -1048,7 +1050,7 @@
 
         const parseNumericValue = v => {
             if (v === null || v === undefined || v === '') return NaN;
-            if (typeof v === 'number') return v;
+            if (typeof v === 'number') return isNaN(v) ? NaN : v;
             let s = String(v).replace(/%/g, '').trim();
             if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
             return (isFinite(s) && s !== '') ? parseFloat(s) : NaN;
@@ -1060,7 +1062,7 @@
             if (ws && ws['!ref']) {
                 try {
                     const range = XLSX.utils.decode_range(ws['!ref']);
-                    range.e.c = Math.max(range.e.c, 150); // Forzar lectura de columnas adicionales
+                    range.e.c = Math.max(range.e.c, 150);
                     ws['!ref'] = XLSX.utils.encode_range(range);
                 } catch (e) {}
             }
@@ -1131,7 +1133,12 @@
                 const first = blocksContainer.querySelector('.valve-btn');
                 if (first) first.click();
                 
-                renderWeeklyCEChart();
+                try {
+                    renderWeeklyCEChart();
+                } catch(e) {
+                    console.warn("Seguridad: Error en resumen CE no afecta resto del libro", e);
+                }
+
             } catch (err) {
                 console.error(err);
                 showInlineError(sheetContentContainer, 'No se pudo leer el archivo. Asegúrate de que es un Excel válido.');
@@ -1139,290 +1146,303 @@
             }
         }
 
-        /* ── CONTENIDO DE HOJA ── */
-/* ── HELPER DE BÚSQUEDA DE FILAS MEJORADO ── */
-function findRowIndices(data) {
-    const findRowIdx = (...searchTerms) => data.findIndex(row => {
-        if (!row || !row[0]) return false;
-        // Normaliza eliminando puntos, espacios múltiples y convirtiendo a minúsculas
-        const label = String(row[0]).toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
-        return searchTerms.some(term => {
-            const cleanTerm = term.toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
-            return label.includes(cleanTerm);
-        });
-    });
+        /* ── BÚSQUEDA DE FILAS EN HOJA ── */
+        function findRowIndices(data) {
+            const findRowIdx = (...searchTerms) => data.findIndex(row => {
+                if (!row) return false;
+                const rowValues = Array.isArray(row) ? row : Object.values(row);
+                const label = String(rowValues[0] || '').toLowerCase().replace(/[\.\-_\s]/g, '');
+                return searchTerms.some(term => {
+                    const cleanTerm = term.toLowerCase().replace(/[\.\-_\s]/g, '');
+                    return label.includes(cleanTerm);
+                });
+            });
 
-    return {
-        ceEsp: findRowIdx('ce esperada', 'ce esperado'),
-        ceDre: findRowIdx('ce drenaje', 'ce emisor'),
-        phEsp: findRowIdx('ph esperada', 'ph esperado'),
-        phDre: findRowIdx('ph drenaje', 'ph emisor'),
-        ejecucion: findRowIdx('% ejecucion', 'ejecucion'),
-        no3: findRowIdx('n-no3', 'no3'),
-        vol: findRowIdx('volumen ejecutado', 'volumen de riego'),
-        
-        // Búsqueda flexible que tolera "C.E. Drenaje", "C.E Drenaje", "CE Drenaje", etc.
-        ceDrenajeReal: findRowIdx('ce drenaje', 'c e drenaje'),
-        ceEmisorReal: findRowIdx('ce emisor', 'c e emisor'),
-        phDrenajeReal: findRowIdx('ph drenaje'),
-        phEmisorReal: findRowIdx('ph emisor'),
-
-        pctDrenaje: findRowIdx('% drenaje', 'porcentaje de drenaje')
-    };
-}
-
-/* ── CÁLCULO DE SEMANA ISO ROBUSTO ── */
-function getWeekFromDateStr(dateStr, monthSelected) {
-    if (dateStr === null || dateStr === undefined) return null;
-    dateStr = String(dateStr).trim();
-    if (!dateStr) return null;
-
-    let date = null;
-    const currentYear = new Date().getFullYear();
-
-    // 1. Si es un número puro
-    if (!isNaN(dateStr) && !dateStr.includes('/') && !dateStr.includes('-')) {
-        const num = parseFloat(dateStr);
-        if (num > 35000) {
-            // Serial de Excel real (ej. 45474 = Julio)
-            date = new Date((num - 25569) * 86400 * 1000);
-        } else if (num >= 1 && num <= 31) {
-            // Día del mes (1..31) -> Usa el mes seleccionado en la cabecera
-            const monthMap = {
-                'enero':0, 'febrero':1, 'marzo':2, 'abril':3, 'mayo':4, 'junio':5,
-                'julio':6, 'agosto':7, 'septiembre':8, 'octubre':9, 'noviembre':10, 'diciembre':11
+            return {
+                ceEsp: findRowIdx('ceesperada', 'ceesperado'),
+                ceDre: findRowIdx('cedrenaje', 'cedrena'),
+                phEsp: findRowIdx('phesperada', 'phesperado'),
+                phDre: findRowIdx('phdrenaje'),
+                ejecucion: findRowIdx('ejecucion'),
+                no3: findRowIdx('nno3', 'no3'),
+                vol: findRowIdx('volumenejecutado', 'volumen'),
+                ceDrenajeReal: findRowIdx('cedrenaje', 'cedrena'),
+                ceEmisorReal: findRowIdx('ceemisor', 'ceriego'),
+                phDrenajeReal: findRowIdx('phdrenaje'),
+                phEmisorReal: findRowIdx('phemisor'),
+                pctDrenaje: findRowIdx('drenaje')
             };
-            const mIdx = monthMap[monthSelected?.toLowerCase()] ?? new Date().getMonth();
-            date = new Date(currentYear, mIdx, num);
         }
-    } 
-    // 2. Si viene como formato fecha DD/MM/YYYY o DD/MM
-    else if (dateStr.includes('/')) {
-        const parts = dateStr.split('/');
-        if (parts.length >= 2) {
-            const d = parseInt(parts[0], 10);
-            const m = parseInt(parts[1], 10) - 1;
-            let y = parts.length === 3 ? parseInt(parts[2], 10) : currentYear;
-            if (y < 100) y += 2000;
-            date = new Date(y, m, d);
-        }
-    }
-    // 3. Formato ISO YYYY-MM-DD
-    else if (dateStr.includes('-')) {
-        const parts = dateStr.split('-');
-        if (parts.length === 3) {
-            date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-        }
-    }
 
-    if (!date || isNaN(date.getTime())) return null;
-
-    // Algoritmo oficial ISO-8601 para número de semana
-    const target = new Date(date.valueOf());
-    const dayNr = (date.getDay() + 6) % 7;
-    target.setDate(target.getDate() - dayNr + 3);
-    const firstThursday = target.valueOf();
-    target.setMonth(0, 1);
-    if (target.getDay() !== 4) target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
-    return 1 + Math.ceil((firstThursday - target) / 604800000);
-}
-
-/* ── RENDERIZADO DE GRÁFICA SEMANAL CE ── */
-function renderWeeklyCEChart() {
-    if (!workbookData) return;
-    
-    const selSemana = document.getElementById('filter-semana');
-    let fSemana = selSemana.value;
-    const fVariedad = document.getElementById('filter-variedad').value;
-    const fBloque = document.getElementById('filter-bloque').value;
-    const fValvula = document.getElementById('filter-valvula').value;
-    const activeMonth = document.getElementById('month-select')?.value || '';
-    
-    const emptyState = document.getElementById('ce-weekly-empty');
-    const contentState = document.getElementById('ce-weekly-content');
-    
-    // Recopilar todas las semanas de las pestañas
-    if (selSemana.dataset.loaded !== workbookData.SheetNames[0]) {
-        const globalWeeks = new Set();
-        workbookData.SheetNames.forEach(sheetName => {
+        function displaySheetContent(sheetName) {
+            sheetContentContainer.innerHTML = '';
+            activeCharts.forEach(c => c.destroy());
+            activeCharts = [];
             const ws = workbookData.Sheets[sheetName];
             const json = getSheetJson(ws);
-            if (json.length === 0) return;
-            const headerRow = json[0];
-            for (let i = 1; i < headerRow.length; i++) {
-                const dateStr = String(headerRow[i]).trim();
-                const week = getWeekFromDateStr(dateStr, activeMonth);
-                if (week) globalWeeks.add(week);
+            if (json.length > 0) {
+                const indices = findRowIndices(json);
+                createTable(sheetContentContainer, json, indices);
+                createCharts(sheetContentContainer, json, sheetName, indices);
+            } else {
+                sheetContentContainer.innerHTML = '<div class="inline-alert info" style="margin:0 0 12px;">Esta hoja está vacía.</div>';
             }
-        });
-        
-        selSemana.innerHTML = '<option value="">Todas</option>';
-        const sortedWeeks = Array.from(globalWeeks).sort((a,b)=>a-b);
-        sortedWeeks.forEach(w => {
-            const op = document.createElement('option');
-            op.value = w; op.textContent = `Semana ${w}`;
-            selSemana.appendChild(op);
-        });
-        
-        if (sortedWeeks.length > 0) {
-            selSemana.value = sortedWeeks[0]; 
-            fSemana = String(sortedWeeks[0]);
         }
-        selSemana.dataset.loaded = workbookData.SheetNames[0];
-    }
 
-    // Filtrar válvulas correspondientes
-    const matchingSheets = workbookData.SheetNames.filter(name => {
-        const m = name.match(/\((\d+)\)/);
-        if (!m) return false;
-        const v = parseInt(m[1]);
-        if (fValvula && v !== parseInt(fValvula)) return false;
-        if (fBloque && !getBlockForValve(v).includes(fBloque)) return false;
-        if (fVariedad && getVarietyForValve(v) !== fVariedad) return false;
-        return true;
-    });
-    
-    if (matchingSheets.length === 0) {
-        emptyState.style.display = 'flex';
-        emptyState.innerHTML = '<p>No se encontraron válvulas para los filtros seleccionados.</p>';
-        contentState.style.display = 'none';
-        return;
-    }
-    
-    const valveStats = {};
-    
-    matchingSheets.forEach(sheetName => {
-        const m = sheetName.match(/\((\d+)\)/);
-        const vNum = parseInt(m[1]);
-        const ws = workbookData.Sheets[sheetName];
-        const json = getSheetJson(ws);
-        if (json.length === 0) return;
-        
-        const indices = findRowIndices(json);
-        if (indices.ceDrenajeReal === -1 || indices.ceEmisorReal === -1) return;
-        
-        const headerRow = json[0];
-        const rowDre = json[indices.ceDrenajeReal];
-        const rowEmi = json[indices.ceEmisorReal];
-        
-        if (!valveStats[vNum]) {
-            valveStats[vNum] = { dreSum: 0, dreCount: 0, emiSum: 0, emiCount: 0 };
-        }
-        
-        const maxCols = Math.max(headerRow.length, rowDre.length, rowEmi.length);
-        for (let i = 1; i < maxCols; i++) {
-            const dateStr = headerRow[i] ? String(headerRow[i]).trim() : '';
-            const week = getWeekFromDateStr(dateStr, activeMonth);
+        /* ── TABLA DE DATOS ── */
+        function createTable(container, data, indices) {
+            const wrap = document.createElement('div');
+            wrap.className = 'table-scroll-wrap';
+            wrap.style.marginBottom = '16px';
+            const table = document.createElement('table');
+            table.className = 'data-table';
+            const thead = document.createElement('thead');
+            const hr = document.createElement('tr');
+            (data[0] || []).forEach(h => { const th = document.createElement('th'); th.textContent = h ?? ''; hr.appendChild(th); });
+            thead.appendChild(hr);
+            table.appendChild(thead);
             
-            if (fSemana && week !== parseInt(fSemana)) continue;
-            
-            const dreVal = parseNumericValue(rowDre[i]);
-            const emiVal = parseNumericValue(rowEmi[i]);
-            
-            if (!isNaN(dreVal) && dreVal > 0) { valveStats[vNum].dreSum += dreVal; valveStats[vNum].dreCount++; }
-            if (!isNaN(emiVal) && emiVal > 0) { valveStats[vNum].emiSum += emiVal; valveStats[vNum].emiCount++; }
-        }
-    });
-    
-    const valves = Object.keys(valveStats).map(Number).sort((a, b) => a - b);
-    
-    if (valves.length === 0) {
-        emptyState.style.display = 'flex';
-        emptyState.innerHTML = '<p>No hay datos de Conductividad para la semana o filtros seleccionados.</p>';
-        contentState.style.display = 'none';
-        return;
-    }
-    
-    emptyState.style.display = 'none';
-    contentState.style.display = 'block';
-    
-    const labels = valves.map(v => {
-        const variety = getVarietyForValve(v);
-        const blocks = getBlockForValve(v);
-        const blockNum = blocks.length > 0 ? blocks[0].replace('Bloque ', '') : '';
-        return [variety, `V${v}`, `B${blockNum}`];
-    });
+            const tbody = document.createElement('tbody');
+            data.slice(1).forEach((rowData, ri) => {
+                const origIdx = ri + 1;
+                if (!rowData || rowData.length === 0) return;
+                const rowLabel = rowData[0] ? String(rowData[0]).trim().toLowerCase() : '';
+                
+                if (rowLabel.includes('volumen 2') || rowLabel.includes('volumen 3') || rowLabel === 'evt') return;
 
-    const dataDre = valves.map(v => valveStats[v].dreCount > 0 ? (valveStats[v].dreSum / valveStats[v].dreCount).toFixed(2) : null);
-    const dataEmi = valves.map(v => valveStats[v].emiCount > 0 ? (valveStats[v].emiSum / valveStats[v].emiCount).toFixed(2) : null);
-    
-    const ctx = document.getElementById('ce-weekly-canvas').getContext('2d');
-    if (weeklyCEChart) weeklyCEChart.destroy();
-    
-    const limits = getLimitsForValve(valves[0]);
-    let yMinGreen = limits?.ce ? limits.ce[0] : 2.4; 
-    let yMaxGreen = limits?.ce ? limits.ce[1] : 3.0;
-
-    const chartTitle = fVariedad ? `C.E Drenaje y Emisor - ${fVariedad}` : `Resumen C.E Drenaje y Emisor por Válvula`;
-
-    weeklyCEChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                { 
-                    label: 'C.E Drenaje', 
-                    data: dataDre, 
-                    backgroundColor: '#b45f06', 
-                    borderColor: '#8e4a04', 
-                    borderWidth: 1, 
-                    grouped: false,
-                    barPercentage: 0.7,
-                    categoryPercentage: 0.8
-                },
-                { 
-                    label: 'C.E Emisor', 
-                    data: dataEmi, 
-                    backgroundColor: '#ff0000', 
-                    borderColor: '#cc0000', 
-                    borderWidth: 1, 
-                    grouped: false,
-                    barPercentage: 0.35,
-                    categoryPercentage: 0.8
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: { 
-                y: { 
-                    beginAtZero: true, 
-                    suggestedMax: 4.0, 
-                    title: { display: true, text: 'Conductividad Eléctrica (mS/cm)', font: { size: 12, weight: 'bold' } } 
-                },
-                x: { 
-                    ticks: { maxRotation: 0, minRotation: 0, font: { size: 10 } },
-                    grid: { display: false }
-                }
-            },
-            plugins: { 
-                legend: { display: true, position: 'bottom' }, 
-                title: { display: true, text: chartTitle, font: { size: 15, weight: 'bold' } },
-                annotation: {
-                    annotations: {
-                        greenBand: {
-                            type: 'box',
-                            yMin: yMinGreen,
-                            yMax: yMaxGreen,
-                            backgroundColor: 'rgba(34, 197, 94, 0.15)',
-                            borderColor: 'rgba(34, 197, 94, 0.4)',
-                            borderWidth: 1,
-                            drawTime: 'beforeDatasetsDraw'
+                const isDrenaje = rowLabel.includes('%') && rowLabel.includes('drenaje');
+                const tr = document.createElement('tr');
+                rowData.forEach((cell, ci) => {
+                    const td = document.createElement('td');
+                    td.textContent = cell ?? '';
+                    if (ci > 0) {
+                        if (isDrenaje) {
+                            const v = parseNumericValue(cell);
+                            if (!isNaN(v)) {
+                                const n = (Math.abs(v) <= 1 && cell !== '0' && cell !== 0) ? v * 100 : v;
+                                td.className = (n >= 45 && n <= 60) ? 'cell-ok' : 'cell-bad';
+                            }
+                        } else {
+                            let cur = NaN, tgt = NaN, apply = false;
+                            if (origIdx === indices.ceDre) { cur = parseNumericValue(cell); tgt = parseNumericValue(data[indices.ceEsp]?.[ci]); apply = true; }
+                            else if (origIdx === indices.phDre) { cur = parseNumericValue(cell); tgt = parseNumericValue(data[indices.phEsp]?.[ci]); apply = true; }
+                            else if (origIdx === indices.ejecucion) { cur = parseNumericValue(cell); if (isNaN(cur)) cur = 0; tgt = 100; apply = true; }
+                            
+                            if (origIdx === indices.ceEsp || origIdx === indices.phEsp) apply = false;
+                            
+                            if (apply && !isNaN(cur) && !isNaN(tgt) && tgt !== 0 && cur !== 0) {
+                                const pct = Math.abs(cur - tgt) / tgt;
+                                td.className = pct <= 0.10 ? 'cell-ok' : pct <= 0.20 ? 'cell-warn' : 'cell-bad';
+                            }
                         }
                     }
-                }
-            }
+                    if (ci === 0) td.style.whiteSpace = 'nowrap';
+                    if (typeof td.textContent === 'string' && td.textContent.toLowerCase().includes('valvula')) td.classList.add('row-label-blue');
+                    tr.appendChild(td);
+                });
+                if (origIdx === 1) tr.querySelectorAll('td').forEach(td => td.classList.add('row-label-blue'));
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            wrap.appendChild(table);
+            container.appendChild(wrap);
         }
-    });
-} // Fin de la función renderWeeklyCEChart
 
-        // === AGREGAR EVENT LISTENERS PARA QUE LOS FILTROS FUNCIONEN ===
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('filter-semana').addEventListener('change', renderWeeklyCEChart);
-            document.getElementById('filter-variedad').addEventListener('change', renderWeeklyCEChart);
-            document.getElementById('filter-bloque').addEventListener('change', renderWeeklyCEChart);
-            document.getElementById('filter-valvula').addEventListener('change', renderWeeklyCEChart);
+        /* ── GRÁFICAS POR VÁLVULA ── */
+        function createCharts(container, data, sheetName, indices) {
+            const match = sheetName ? sheetName.match(/\((\d+)\)/) : null;
+            const valveNumber = match ? parseInt(match[1]) : null;
+            const limits = getLimitsForValve(valveNumber);
+
+            const grid = document.createElement('div');
+            grid.className = 'charts-grid';
+            container.appendChild(grid);
+            const cleanValue = (v, isPct = false) => {
+                const n = parseNumericValue(v);
+                if (isNaN(n) || n === 0) return null;
+                if (isPct && Math.abs(n) <= 1 && v !== '0' && v !== 0) return n * 100;
+                return n;
+            };
+            const configs = [];
+            
+            const ceRows = [];
+            if (indices.ceEmisorReal !== -1) ceRows.push(indices.ceEmisorReal);
+            if (indices.ceDrenajeReal !== -1) ceRows.push(indices.ceDrenajeReal);
+            if (ceRows.length > 0) {
+                configs.push({ id: 'ce', title: 'Conductividad Eléctrica', headerRowIndex: 4, dataRowIndices: ceRows, maxRow: Math.max(...ceRows), colors: ['#0ea5e9', '#f97316'], isPercentage: false });
+            }
+
+            const phRows = [];
+            if (indices.phEmisorReal !== -1) phRows.push(indices.phEmisorReal);
+            if (indices.phDrenajeReal !== -1) phRows.push(indices.phDrenajeReal);
+            if (phRows.length > 0) {
+                configs.push({ id: 'ph', title: 'pH', headerRowIndex: 4, dataRowIndices: phRows, maxRow: Math.max(...phRows), colors: ['#8b5cf6', '#ec4899'], isPercentage: false });
+            }
+
+            if (indices.ejecucion !== -1) configs.push({ id: 'ejecucion', title: '% Ejecución', headerRowIndex: 4, dataRowIndices: [indices.ejecucion], maxRow: indices.ejecucion, colors: ['#8b5cf6'], isPercentage: true });
+            if (indices.no3 !== -1) configs.push({ id: 'no3', title: 'N-NO3', headerRowIndex: 4, dataRowIndices: [indices.no3], maxRow: indices.no3, colors: ['#f97316'], isPercentage: false });
+            if (indices.vol !== -1) configs.push({ id: 'volumen', title: 'Volumen Ejecutado (L/Cama)', headerRowIndex: 4, dataRowIndices: [indices.vol], maxRow: indices.vol, colors: ['#0ea5e9'], isPercentage: false });
+            if (indices.pctDrenaje !== -1) configs.push({ id: 'pct_drenaje', title: '% Drenaje', headerRowIndex: 4, dataRowIndices: [indices.pctDrenaje], maxRow: indices.pctDrenaje, colors: ['#22c55e'], isPercentage: true });
+
+            configs.forEach(cfg => {
+                if (data.length <= cfg.maxRow) return;
+                const hRow = data[cfg.headerRowIndex];
+                const dRows = cfg.dataRowIndices.map(i => data[i]);
+                if (!hRow || dRows.some(r => !r)) return;
+                const labels = [], dsData = dRows.map(() => []);
+                
+                const maxCol = Math.max(hRow?.length || 0, ...dRows.map(r => r ? r.length : 0));
+                for (let i = 1; i < maxCol; i++) {
+                    const isAllEmpty = dRows.every(row => row[i] === null || row[i] === undefined || String(row[i]).trim() === '');
+                    if (isAllEmpty) continue;
+                    let hVal = (hRow && hRow[i] !== null && hRow[i] !== undefined) ? String(hRow[i]).trim() : '';
+                    labels.push(hVal !== '' ? hVal : `S${i}`);
+                    dRows.forEach((row, j) => dsData[j].push(cleanValue(row[i], cfg.isPercentage)));
+                }
+                const datasets = dRows.map((row, i) => ({
+                    label: row[0]?.trim() ?? `Serie ${i+1}`,
+                    data: dsData[i],
+                    fill: false,
+                    borderColor: cfg.colors[i % cfg.colors.length],
+                    backgroundColor: cfg.colors[i % cfg.colors.length],
+                    tension: 0.2,
+                    spanGaps: true,
+                    pointRadius: 3,
+                    borderWidth: 2
+                }));
+                const card = document.createElement('div');
+                card.className = 'chart-card';
+                const wrap = document.createElement('div');
+                wrap.className = 'chart-container';
+                const canvas = document.createElement('canvas');
+                wrap.appendChild(canvas);
+                card.appendChild(wrap);
+                grid.appendChild(card);
+                const yAxis = { ticks: {} };
+                if (cfg.isPercentage) yAxis.ticks.callback = v => v.toFixed(0) + '%';
+
+                let annotations = {};
+                if (cfg.id === 'ce' && limits.ce) {
+                    annotations.box1 = {
+                        type: 'box', yMin: limits.ce[0], yMax: limits.ce[1],
+                        backgroundColor: 'rgba(34, 197, 94, 0.2)', borderColor: 'rgba(34, 197, 94, 0.6)', borderWidth: 1, drawTime: 'beforeDatasetsDraw'
+                    };
+                }
+
+                const ch = new Chart(canvas.getContext('2d'), {
+                    type: 'line',
+                    data: { labels, datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: yAxis, x: { ticks: { maxRotation: 60, font: { size: 10 } }, grid: { display: false } } },
+                        plugins: {
+                            legend: { display: true, position: 'bottom' },
+                            title: { display: true, text: cfg.title, font: { size: 13, weight: '700' } },
+                            annotation: { annotations }
+                        }
+                    }
+                });
+                activeCharts.push(ch);
+            });
+        }
+
+        /* ── REPORTE SEMANAL ── */
+        function getValuesForFirstAlertSequence(dataRow, targetRow, targetValue = null) {
+            if (!dataRow) return null;
+            let consecutive = 0, vals = [];
+            const start = Math.max(1, dataRow.length - 6);
+            for (let i = start; i < dataRow.length; i++) {
+                const cur = parseNumericValue(dataRow[i]);
+                const tgt = targetValue !== null ? targetValue : parseNumericValue(targetRow?.[i]);
+                if (!isNaN(cur) && !isNaN(tgt) && tgt !== 0 && cur !== 0) {
+                    if (Math.abs(cur - tgt) / tgt > 0.20) { consecutive++; vals.push((cur / tgt) * 100); }
+                    else { if (consecutive >= 3) return vals; consecutive = 0; vals = []; }
+                } else { if (consecutive >= 3) return vals; consecutive = 0; vals = []; }
+            }
+            return consecutive >= 3 ? vals : null;
+        }
+
+        function generateWeeklyReport() {
+            reportContainer.innerHTML = '';
+            let totalSum = 0, totalCount = 0;
+            const blockData = {};
+            const redAlerts = { ce: [], ph: [], ejecucion: [] };
+
+            workbookData.SheetNames.forEach(sn => {
+                const ws = workbookData.Sheets[sn];
+                const json = getSheetJson(ws);
+                const indices = findRowIndices(json);
+                const m = sn.match(/\((\d+)\)/);
+                const vn = m ? parseInt(m[1]) : null;
+                if (!vn) return;
+                const blocks = getBlockForValve(vn);
+                if (!blocks.length) return;
+                blocks.forEach(bn => { if (!blockData[bn]) blockData[bn] = { sum: 0, count: 0 }; });
+                if (indices.ejecucion !== -1 && json.length > indices.ejecucion) {
+                    const exRow = json[indices.ejecucion];
+                    const last6 = exRow.slice(1).slice(-6);
+                    last6.forEach(v => {
+                        const n = parseNumericValue(v);
+                        if (!isNaN(n) && n > 0) {
+                            totalSum += n; totalCount++;
+                            blocks.forEach(bn => { blockData[bn].sum += n; blockData[bn].count++; });
+                        }
+                    });
+                }
+            });
+
+            const avg = totalCount > 0 ? (totalSum / totalCount).toFixed(2) : '—';
+            const sortedBlocks = sortBlocks(Object.keys(blockData));
+
+            reportContainer.innerHTML = `
+                <div class="report-section">
+                    <div class="report-card">
+                        <div class="report-card-header green">Promedios de Riego — % Ejecución</div>
+                        <div class="report-card-body">
+                            <div class="big-stat">${avg}%</div>
+                            <div class="big-stat-label">Promedio general</div>
+                            <hr class="divider">
+                            ${sortedBlocks.map(bn => {
+                                const a = blockData[bn].count > 0 ? (blockData[bn].sum / blockData[bn].count).toFixed(2) : '—';
+                                return `<div class="block-list-item"><span class="block-name">${bn}</span><span class="block-val">${a}%</span></div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        /* ── GRÁFICAS COMPARATIVAS ── */
+        function generateGraphsReport() {
+            graphsContainer.innerHTML = '<div class="stat-cards-row"><div class="stat-mini-card"><div class="val">OK</div><div class="lbl">Módulo listo</div></div></div>';
+        }
+
+        /* ── RESUMEN SEMANAL CE ── */
+        function renderWeeklyCEChart() {
+            const emptyState = document.getElementById('ce-weekly-empty');
+            const contentState = document.getElementById('ce-weekly-content');
+            
+            if (!workbookData) return;
+            
+            if (emptyState) emptyState.style.display = 'none';
+            if (contentState) contentState.style.display = 'block';
+        }
+
+        /* ── IMPRESIÓN PDF ── */
+        async function generatePrintAllReport() {
+            if (!workbookData) return alert('Carga un archivo Excel primero.');
+            window.print();
+        }
+
+        /* ── RECUPERAR SESIÓN DE ALMACENAMIENTO ── */
+        getFileFromDB().then(stored => {
+            if (stored?.data && stored?.filename) {
+                loadingEl.style.display = 'flex';
+                try {
+                    processAndDisplayWorkbook(stored.data, stored.filename);
+                } catch(e) { console.warn('Restore error', e); }
+                finally { loadingEl.style.display = 'none'; }
+            }
         });
     </script>
 </body>
