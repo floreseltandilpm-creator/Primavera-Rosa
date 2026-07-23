@@ -1721,15 +1721,44 @@
             const emptyState = document.getElementById('ce-weekly-empty');
             const contentState = document.getElementById('ce-weekly-content');
             
+            // 1. Recopilar TODAS las semanas del archivo (sin importar filtros) para no aislar opciones
+            if (selSemana.dataset.loaded !== workbookData.SheetNames[0]) {
+                const globalWeeks = new Set();
+                workbookData.SheetNames.forEach(sheetName => {
+                    const ws = workbookData.Sheets[sheetName];
+                    const json = getSheetJson(ws);
+                    if (json.length === 0) return;
+                    const headerRow = json[0];
+                    for (let i = 1; i < headerRow.length; i++) {
+                        const dateStr = String(headerRow[i]).trim();
+                        const week = getWeekFromDateStr(dateStr);
+                        if (week) globalWeeks.add(week);
+                    }
+                });
+                
+                selSemana.innerHTML = '<option value="">Todas</option>';
+                const sortedWeeks = Array.from(globalWeeks).sort((a,b)=>a-b);
+                sortedWeeks.forEach(w => {
+                    const op = document.createElement('option');
+                    op.value = w; op.textContent = `Semana ${w}`;
+                    selSemana.appendChild(op);
+                });
+                
+                if (sortedWeeks.length > 0) {
+                    selSemana.value = sortedWeeks[0]; 
+                    fSemana = String(sortedWeeks[0]);
+                }
+                selSemana.dataset.loaded = workbookData.SheetNames[0];
+            }
+
+            // 2. Filtrar hojas según los selectores (Variedad, Bloque, Válvula)
             const matchingSheets = workbookData.SheetNames.filter(name => {
                 const m = name.match(/\((\d+)\)/);
                 if (!m) return false;
                 const v = parseInt(m[1]);
-                
                 if (fValvula && v !== parseInt(fValvula)) return false;
                 if (fBloque && !getBlockForValve(v).includes(fBloque)) return false;
                 if (fVariedad && getVarietyForValve(v) !== fVariedad) return false;
-                
                 return true;
             });
             
@@ -1741,12 +1770,10 @@
             }
             
             const valveStats = {};
-            const availableWeeks = new Set();
             
             matchingSheets.forEach(sheetName => {
                 const m = sheetName.match(/\((\d+)\)/);
                 const vNum = parseInt(m[1]);
-                
                 const ws = workbookData.Sheets[sheetName];
                 const json = getSheetJson(ws);
                 if (json.length === 0) return;
@@ -1760,41 +1787,6 @@
                 if (!valveStats[vNum]) {
                     valveStats[vNum] = { dreSum: 0, dreCount: 0, emiSum: 0, emiCount: 0 };
                 }
-                
-                for (let i = 1; i < headerRow.length; i++) {
-                    const dateStr = String(headerRow[i]).trim();
-                    const week = getWeekFromDateStr(dateStr);
-                    if (week) availableWeeks.add(week);
-                }
-            });
-
-            // Actualizar selector de semanas dinámicamente según el archivo
-            if (selSemana.dataset.loaded !== workbookData.SheetNames[0]) {
-                selSemana.innerHTML = '<option value="">Todas</option>';
-                const sortedWeeks = Array.from(availableWeeks).sort((a,b)=>a-b);
-                sortedWeeks.forEach(w => {
-                    const op = document.createElement('option');
-                    op.value = w; op.textContent = `Semana ${w}`;
-                    selSemana.appendChild(op);
-                });
-                
-                if (sortedWeeks.length > 0) {
-                    selSemana.value = sortedWeeks[0]; // Seleccionar la primera semana disponible (ej. 23)
-                    fSemana = String(sortedWeeks[0]);
-                }
-                selSemana.dataset.loaded = workbookData.SheetNames[0]; // Marcar como cargado para este archivo
-            }
-
-            // Segunda pasada para sumar datos con el filtro de semana correcto
-            matchingSheets.forEach(sheetName => {
-                const m = sheetName.match(/\((\d+)\)/);
-                const vNum = parseInt(m[1]);
-                const ws = workbookData.Sheets[sheetName];
-                const json = getSheetJson(ws);
-                const indices = findRowIndices(json);
-                const headerRow = json[0];
-                const rowDre = json[indices.ceDrenajeReal];
-                const rowEmi = json[indices.ceEmisorReal];
                 
                 for (let i = 1; i < headerRow.length; i++) {
                     const dateStr = String(headerRow[i]).trim();
@@ -1822,32 +1814,94 @@
             emptyState.style.display = 'none';
             contentState.style.display = 'block';
             
-            const labels = valves.map(v => `V${v} - ${getVarietyForValve(v)}`);
+            // 3. Preparar Datos para la Gráfica
+            // Etiquetas de eje X con múltiples líneas: Variedad, Número Válvula, Número Bloque
+            const labels = valves.map(v => {
+                const variety = getVarietyForValve(v);
+                const blocks = getBlockForValve(v);
+                const blockNum = blocks.length > 0 ? blocks[0].replace('Bloque ', '') : '';
+                return [variety, String(v), blockNum];
+            });
+
             const dataDre = valves.map(v => valveStats[v].dreCount > 0 ? (valveStats[v].dreSum / valveStats[v].dreCount).toFixed(2) : null);
             const dataEmi = valves.map(v => valveStats[v].emiCount > 0 ? (valveStats[v].emiSum / valveStats[v].emiCount).toFixed(2) : null);
             
             const ctx = document.getElementById('ce-weekly-canvas').getContext('2d');
             if (weeklyCEChart) weeklyCEChart.destroy();
             
+            // Determinar zona verde según los límites de la primera válvula graficada
+            const limits = getLimitsForValve(valves[0]);
+            let yMinGreen = 2.4; 
+            let yMaxGreen = 3.4;
+            if (limits && limits.ce) {
+                yMinGreen = limits.ce[0];
+                yMaxGreen = limits.ce[1] + 0.4; // Ajuste visual de la imagen (hasta 3.4 para Freedom)
+            }
+
+            const chartTitle = fVariedad ? `C.E Drenaje Rosa ${fVariedad}` : `C.E Drenaje Rosa (Múltiples Variedades)`;
+
             weeklyCEChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'CE Drenaje (Promedio)', data: dataDre, backgroundColor: '#ef4444', borderColor: '#b91c1c', borderWidth: 1, borderRadius: 4 },
-                        { label: 'CE Emisor (Promedio)', data: dataEmi, backgroundColor: '#3b82f6', borderColor: '#1d4ed8', borderWidth: 1, borderRadius: 4 }
+                        // Drenaje (Café) se dibuja primero (queda atrás)
+                        { 
+                            label: 'C.E Drenaje', 
+                            data: dataDre, 
+                            backgroundColor: '#b45f06', 
+                            borderColor: '#8e4a04', 
+                            borderWidth: 1, 
+                            grouped: false,
+                            barPercentage: 0.6,
+                            categoryPercentage: 0.8
+                        },
+                        // Emisor (Rojo) se dibuja después (queda al frente solapado)
+                        { 
+                            label: 'C.E Emisor', 
+                            data: dataEmi, 
+                            backgroundColor: '#ff0000', 
+                            borderColor: '#cc0000', 
+                            borderWidth: 1, 
+                            grouped: false,
+                            barPercentage: 0.6,
+                            categoryPercentage: 0.8
+                        }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: { 
-                        y: { beginAtZero: true, title: { display: true, text: 'Conductividad Eléctrica (CE)', font: { size: 12 } } },
-                        x: { ticks: { maxRotation: 45, minRotation: 45, font: { size: 10 } } }
+                        y: { 
+                            beginAtZero: true, 
+                            max: 4, 
+                            title: { display: true, text: 'Conductividad Electrica (mS/cm)', font: { size: 12 } } 
+                        },
+                        x: { 
+                            ticks: { 
+                                maxRotation: 0, 
+                                minRotation: 0, 
+                                font: { size: 10, family: 'sans-serif' }
+                            },
+                            grid: { display: false }
+                        }
                     },
                     plugins: { 
-                        legend: { position: 'top' }, 
-                        title: { display: true, text: `Promedio Semanal CE por Válvula ${fSemana ? '(Semana '+fSemana+')' : '(Todas las semanas)'}`, font: { size: 14 } } 
+                        legend: { display: false }, 
+                        title: { display: true, text: chartTitle, font: { size: 16, weight: 'bold' } },
+                        annotation: {
+                            annotations: {
+                                greenBand: {
+                                    type: 'box',
+                                    yMin: yMinGreen,
+                                    yMax: yMaxGreen,
+                                    backgroundColor: 'rgba(134, 203, 114, 0.4)', // Verde claro semi-transparente
+                                    borderWidth: 0,
+                                    drawTime: 'beforeDatasetsDraw' // Dibujar detrás de las barras
+                                }
+                            }
+                        }
                     }
                 }
             });
