@@ -1140,792 +1140,282 @@
         }
 
         /* ── CONTENIDO DE HOJA ── */
-        function findRowIndices(data) {
-            const findRowIdx = (...searchTerms) => data.findIndex(row => {
-                if (!row || !row[0]) return false;
-                const label = String(row[0]).toLowerCase();
-                return searchTerms.some(term => label.includes(term));
-            });
-            // Modificación: separar correctamente Emisor de Drenaje para las gráficas
-            return {
-                ceEsp: findRowIdx('ce esperada', 'ce esperado'),
-                ceDre: findRowIdx('ce drenaje', 'ce emisor'), // Mantenido para lógica de reporte 
-                phEsp: findRowIdx('ph esperada', 'ph esperado'),
-                phDre: findRowIdx('ph drenaje', 'ph emisor'), // Mantenido para lógica de reporte 
-                ejecucion: findRowIdx('% ejecución', '% ejecucion', 'ejecución'),
-                no3: findRowIdx('n-no3', 'no3'),
-                vol: findRowIdx('volumen ejecutado', 'volumen de riego'),
-                
-                // Nuevas variables estrictas para graficar AMBOS
-                ceDrenajeReal: findRowIdx('ce drenaje'),
-                ceEmisorReal: findRowIdx('ce emisor'),
-                phDrenajeReal: findRowIdx('ph drenaje'),
-                phEmisorReal: findRowIdx('ph emisor'),
+        /* ── HELPER DE BÚSQUEDA DE FILAS MEJORADO ── */
+function findRowIndices(data) {
+    const findRowIdx = (...searchTerms) => data.findIndex(row => {
+        if (!row || !row[0]) return false;
+        // Normaliza eliminando puntos, espacios múltiples y convirtiendo a minúsculas
+        const label = String(row[0]).toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
+        return searchTerms.some(term => {
+            const cleanTerm = term.toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
+            return label.includes(cleanTerm);
+        });
+    });
 
-                pctDrenaje: findRowIdx('% drenaje', 'porcentaje de drenaje')
+    return {
+        ceEsp: findRowIdx('ce esperada', 'ce esperado'),
+        ceDre: findRowIdx('ce drenaje', 'ce emisor'),
+        phEsp: findRowIdx('ph esperada', 'ph esperado'),
+        phDre: findRowIdx('ph drenaje', 'ph emisor'),
+        ejecucion: findRowIdx('% ejecucion', 'ejecucion'),
+        no3: findRowIdx('n-no3', 'no3'),
+        vol: findRowIdx('volumen ejecutado', 'volumen de riego'),
+        
+        // Búsqueda flexible que tolera "C.E. Drenaje", "C.E Drenaje", "CE Drenaje", etc.
+        ceDrenajeReal: findRowIdx('ce drenaje', 'c e drenaje'),
+        ceEmisorReal: findRowIdx('ce emisor', 'c e emisor'),
+        phDrenajeReal: findRowIdx('ph drenaje'),
+        phEmisorReal: findRowIdx('ph emisor'),
+
+        pctDrenaje: findRowIdx('% drenaje', 'porcentaje de drenaje')
+    };
+}
+
+/* ── CÁLCULO DE SEMANA ISO ROBUSTO ── */
+function getWeekFromDateStr(dateStr, monthSelected) {
+    if (dateStr === null || dateStr === undefined) return null;
+    dateStr = String(dateStr).trim();
+    if (!dateStr) return null;
+
+    let date = null;
+    const currentYear = new Date().getFullYear();
+
+    // 1. Si es un número puro
+    if (!isNaN(dateStr) && !dateStr.includes('/') && !dateStr.includes('-')) {
+        const num = parseFloat(dateStr);
+        if (num > 35000) {
+            // Serial de Excel real (ej. 45474 = Julio)
+            date = new Date((num - 25569) * 86400 * 1000);
+        } else if (num >= 1 && num <= 31) {
+            // Día del mes (1..31) -> Usa el mes seleccionado en la cabecera
+            const monthMap = {
+                'enero':0, 'febrero':1, 'marzo':2, 'abril':3, 'mayo':4, 'junio':5,
+                'julio':6, 'agosto':7, 'septiembre':8, 'octubre':9, 'noviembre':10, 'diciembre':11
             };
+            const mIdx = monthMap[monthSelected?.toLowerCase()] ?? new Date().getMonth();
+            date = new Date(currentYear, mIdx, num);
         }
+    } 
+    // 2. Si viene como formato fecha DD/MM/YYYY o DD/MM
+    else if (dateStr.includes('/')) {
+        const parts = dateStr.split('/');
+        if (parts.length >= 2) {
+            const d = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10) - 1;
+            let y = parts.length === 3 ? parseInt(parts[2], 10) : currentYear;
+            if (y < 100) y += 2000;
+            date = new Date(y, m, d);
+        }
+    }
+    // 3. Formato ISO YYYY-MM-DD
+    else if (dateStr.includes('-')) {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        }
+    }
 
-        function displaySheetContent(sheetName) {
-            sheetContentContainer.innerHTML = '';
-            activeCharts.forEach(c => c.destroy());
-            activeCharts = [];
+    if (!date || isNaN(date.getTime())) return null;
+
+    // Algoritmo oficial ISO-8601 para número de semana
+    const target = new Date(date.valueOf());
+    const dayNr = (date.getDay() + 6) % 7;
+    target.setDate(target.getDate() - dayNr + 3);
+    const firstThursday = target.valueOf();
+    target.setMonth(0, 1);
+    if (target.getDay() !== 4) target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+    return 1 + Math.ceil((firstThursday - target) / 604800000);
+}
+
+/* ── RENDERIZADO DE GRÁFICA SEMANAL CE ── */
+function renderWeeklyCEChart() {
+    if (!workbookData) return;
+    
+    const selSemana = document.getElementById('filter-semana');
+    let fSemana = selSemana.value;
+    const fVariedad = document.getElementById('filter-variedad').value;
+    const fBloque = document.getElementById('filter-bloque').value;
+    const fValvula = document.getElementById('filter-valvula').value;
+    const activeMonth = document.getElementById('month-select')?.value || '';
+    
+    const emptyState = document.getElementById('ce-weekly-empty');
+    const contentState = document.getElementById('ce-weekly-content');
+    
+    // Recopilar todas las semanas de las pestañas
+    if (selSemana.dataset.loaded !== workbookData.SheetNames[0]) {
+        const globalWeeks = new Set();
+        workbookData.SheetNames.forEach(sheetName => {
             const ws = workbookData.Sheets[sheetName];
             const json = getSheetJson(ws);
-            if (json.length > 0) {
-                const indices = findRowIndices(json);
-                createTable(sheetContentContainer, json, indices);
-                createCharts(sheetContentContainer, json, sheetName, indices);
-            } else {
-                sheetContentContainer.innerHTML = '<div class="inline-alert info" style="margin:0 0 12px;">Esta hoja está vacía.</div>';
+            if (json.length === 0) return;
+            const headerRow = json[0];
+            for (let i = 1; i < headerRow.length; i++) {
+                const dateStr = String(headerRow[i]).trim();
+                const week = getWeekFromDateStr(dateStr, activeMonth);
+                if (week) globalWeeks.add(week);
             }
+        });
+        
+        selSemana.innerHTML = '<option value="">Todas</option>';
+        const sortedWeeks = Array.from(globalWeeks).sort((a,b)=>a-b);
+        sortedWeeks.forEach(w => {
+            const op = document.createElement('option');
+            op.value = w; op.textContent = `Semana ${w}`;
+            selSemana.appendChild(op);
+        });
+        
+        if (sortedWeeks.length > 0) {
+            selSemana.value = sortedWeeks[0]; 
+            fSemana = String(sortedWeeks[0]);
         }
+        selSemana.dataset.loaded = workbookData.SheetNames[0];
+    }
 
-        /* ── TABLA ── */
-        function createTable(container, data, indices) {
-            const wrap = document.createElement('div');
-            wrap.className = 'table-scroll-wrap';
-            wrap.style.marginBottom = '16px';
-            const table = document.createElement('table');
-            table.className = 'data-table';
-            // Thead
-            const thead = document.createElement('thead');
-            const hr = document.createElement('tr');
-            (data[0] || []).forEach(h => { const th = document.createElement('th'); th.textContent = h ?? ''; hr.appendChild(th); });
-            thead.appendChild(hr);
-            table.appendChild(thead);
-            // Tbody
-            const tbody = document.createElement('tbody');
-            data.slice(1).forEach((rowData, ri) => {
-                const origIdx = ri + 1;
-                if (!rowData || rowData.length === 0) return;
-                const rowLabel = rowData[0] ? String(rowData[0]).trim().toLowerCase() : '';
-                
-                // Ocultar filas especificadas
-                if (rowLabel.includes('volumen 2') || rowLabel.includes('volumen 3') || rowLabel === 'evt') return;
-
-                const isDrenaje = rowLabel.includes('%') && rowLabel.includes('drenaje');
-                const tr = document.createElement('tr');
-                rowData.forEach((cell, ci) => {
-                    const td = document.createElement('td');
-                    td.textContent = cell ?? '';
-                    if (ci > 0) {
-                        if (isDrenaje) {
-                            const v = parseNumericValue(cell);
-                            if (!isNaN(v)) {
-                                const n = (Math.abs(v) <= 1 && cell !== '0' && cell !== 0) ? v * 100 : v;
-                                td.className = (n >= 45 && n <= 60) ? 'cell-ok' : 'cell-bad';
-                            }
-                        } else {
-                            let cur = NaN, tgt = NaN, apply = false;
-                            if (origIdx === indices.ceDre) { cur = parseNumericValue(cell); tgt = parseNumericValue(data[indices.ceEsp]?.[ci]); apply = true; }
-                            else if (origIdx === indices.phDre) { cur = parseNumericValue(cell); tgt = parseNumericValue(data[indices.phEsp]?.[ci]); apply = true; }
-                            else if (origIdx === indices.ejecucion) { cur = parseNumericValue(cell); if (isNaN(cur)) cur = 0; tgt = 100; apply = true; }
-                            
-                            if (origIdx === indices.ceEsp || origIdx === indices.phEsp) apply = false;
-                            
-                            if (apply && !isNaN(cur) && !isNaN(tgt) && tgt !== 0 && cur !== 0) {
-                                const pct = Math.abs(cur - tgt) / tgt;
-                                td.className = pct <= 0.10 ? 'cell-ok' : pct <= 0.20 ? 'cell-warn' : 'cell-bad';
-                            }
-                        }
-                    }
-                    if (ci === 0) td.style.whiteSpace = 'nowrap';
-                    if (typeof td.textContent === 'string' && td.textContent.toLowerCase().includes('valvula')) td.classList.add('row-label-blue');
-                    tr.appendChild(td);
-                });
-                if (origIdx === 1) tr.querySelectorAll('td').forEach(td => td.classList.add('row-label-blue'));
-                tbody.appendChild(tr);
-            });
-            table.appendChild(tbody);
-            wrap.appendChild(table);
-            container.appendChild(wrap);
+    // Filtrar válvulas correspondientes
+    const matchingSheets = workbookData.SheetNames.filter(name => {
+        const m = name.match(/\((\d+)\)/);
+        if (!m) return false;
+        const v = parseInt(m[1]);
+        if (fValvula && v !== parseInt(fValvula)) return false;
+        if (fBloque && !getBlockForValve(v).includes(fBloque)) return false;
+        if (fVariedad && getVarietyForValve(v) !== fVariedad) return false;
+        return true;
+    });
+    
+    if (matchingSheets.length === 0) {
+        emptyState.style.display = 'flex';
+        emptyState.innerHTML = '<p>No se encontraron válvulas para los filtros seleccionados.</p>';
+        contentState.style.display = 'none';
+        return;
+    }
+    
+    const valveStats = {};
+    
+    matchingSheets.forEach(sheetName => {
+        const m = sheetName.match(/\((\d+)\)/);
+        const vNum = parseInt(m[1]);
+        const ws = workbookData.Sheets[sheetName];
+        const json = getSheetJson(ws);
+        if (json.length === 0) return;
+        
+        const indices = findRowIndices(json);
+        if (indices.ceDrenajeReal === -1 || indices.ceEmisorReal === -1) return;
+        
+        const headerRow = json[0];
+        const rowDre = json[indices.ceDrenajeReal];
+        const rowEmi = json[indices.ceEmisorReal];
+        
+        if (!valveStats[vNum]) {
+            valveStats[vNum] = { dreSum: 0, dreCount: 0, emiSum: 0, emiCount: 0 };
         }
-
-        /* ── GRÁFICAS POR VÁLVULA ── */
-        function createCharts(container, data, sheetName, indices) {
-            const match = sheetName ? sheetName.match(/\((\d+)\)/) : null;
-            const valveNumber = match ? parseInt(match[1]) : null;
-            const limits = getLimitsForValve(valveNumber);
-
-            const grid = document.createElement('div');
-            grid.className = 'charts-grid';
-            container.appendChild(grid);
-            const cleanValue = (v, isPct = false) => {
-                const n = parseNumericValue(v);
-                if (isNaN(n) || n === 0) return null; // No grafica el valor si es 0
-                if (isPct && Math.abs(n) <= 1 && v !== '0' && v !== 0) return n * 100;
-                return n;
-            };
-            const configs = [];
+        
+        const maxCols = Math.max(headerRow.length, rowDre.length, rowEmi.length);
+        for (let i = 1; i < maxCols; i++) {
+            const dateStr = headerRow[i] ? String(headerRow[i]).trim() : '';
+            const week = getWeekFromDateStr(dateStr, activeMonth);
             
-            // Modificación: Gráfica de CE permitiendo ambas filas (Emisor y Drenaje)
-            const ceRows = [];
-            if (indices.ceEmisorReal !== -1) ceRows.push(indices.ceEmisorReal);
-            if (indices.ceDrenajeReal !== -1) ceRows.push(indices.ceDrenajeReal);
+            if (fSemana && week !== parseInt(fSemana)) continue;
             
-            if (ceRows.length > 0) {
-                configs.push({ id: 'ce', title: 'Conductividad Eléctrica', headerRowIndex: 4, dataRowIndices: ceRows, maxRow: Math.max(...ceRows), colors: ['#0ea5e9', '#f97316'], isPercentage: false });
-            } else if (indices.ceDre !== -1) {
-                // Fallback por si la hoja no tiene ninguna pero coincide en la lógica anterior
-                configs.push({ id: 'ce', title: 'Conductividad Eléctrica', headerRowIndex: 4, dataRowIndices: [indices.ceDre], maxRow: indices.ceDre, colors: ['#f97316'], isPercentage: false });
-            }
-
-            // Modificación: Gráfica de pH permitiendo ambas filas (Emisor y Drenaje)
-            const phRows = [];
-            if (indices.phEmisorReal !== -1) phRows.push(indices.phEmisorReal);
-            if (indices.phDrenajeReal !== -1) phRows.push(indices.phDrenajeReal);
+            const dreVal = parseNumericValue(rowDre[i]);
+            const emiVal = parseNumericValue(rowEmi[i]);
             
-            if (phRows.length > 0) {
-                configs.push({ id: 'ph', title: 'pH', headerRowIndex: 4, dataRowIndices: phRows, maxRow: Math.max(...phRows), colors: ['#8b5cf6', '#ec4899'], isPercentage: false });
-            } else if (indices.phDre !== -1) {
-                // Fallback
-                configs.push({ id: 'ph', title: 'pH', headerRowIndex: 4, dataRowIndices: [indices.phDre], maxRow: indices.phDre, colors: ['#ec4899'], isPercentage: false });
-            }
-
-            if (indices.ejecucion !== -1) configs.push({ id: 'ejecucion', title: '% Ejecución', headerRowIndex: 4, dataRowIndices: [indices.ejecucion], maxRow: indices.ejecucion, colors: ['#8b5cf6'], isPercentage: true });
-            if (indices.no3 !== -1) configs.push({ id: 'no3', title: 'N-NO3', headerRowIndex: 4, dataRowIndices: [indices.no3], maxRow: indices.no3, colors: ['#f97316'], isPercentage: false });
-            if (indices.vol !== -1) configs.push({ id: 'volumen', title: 'Volumen Ejecutado (L/Cama)', headerRowIndex: 4, dataRowIndices: [indices.vol], maxRow: indices.vol, colors: ['#0ea5e9'], isPercentage: false });
-            if (indices.pctDrenaje !== -1) configs.push({ id: 'pct_drenaje', title: '% Drenaje', headerRowIndex: 4, dataRowIndices: [indices.pctDrenaje], maxRow: indices.pctDrenaje, colors: ['#22c55e'], isPercentage: true });
-
-            configs.forEach(cfg => {
-                if (data.length <= cfg.maxRow) return;
-                const hRow = data[cfg.headerRowIndex];
-                const dRows = cfg.dataRowIndices.map(i => data[i]);
-                if (!hRow || dRows.some(r => !r)) return;
-                const labels = [], dsData = dRows.map(() => []);
-                
-                // Fijar límite de columnas máximo para evitar que el Excel corte las fechas vacías
-                const maxCol = Math.max(hRow?.length || 0, ...dRows.map(r => r ? r.length : 0));
-                for (let i = 1; i < maxCol; i++) {
-                    const isAllEmpty = dRows.every(row => row[i] === null || row[i] === undefined || String(row[i]).trim() === '');
-                    if (isAllEmpty) continue;
-                    let hVal = (hRow && hRow[i] !== null && hRow[i] !== undefined) ? String(hRow[i]).trim() : '';
-                    labels.push(hVal !== '' ? hVal : `S${i}`);
-                    dRows.forEach((row, j) => dsData[j].push(cleanValue(row[i], cfg.isPercentage)));
-                }
-                const datasets = dRows.map((row, i) => ({
-                    label: row[0]?.trim() ?? `Serie ${i+1}`,
-                    data: dsData[i],
-                    fill: false,
-                    borderColor: cfg.colors[i % cfg.colors.length],
-                    backgroundColor: cfg.colors[i % cfg.colors.length],
-                    tension: 0.2,
-                    spanGaps: true,
-                    pointRadius: 3,
-                    borderWidth: 2
-                }));
-                const card = document.createElement('div');
-                card.className = 'chart-card';
-                const wrap = document.createElement('div');
-                wrap.className = 'chart-container';
-                const canvas = document.createElement('canvas');
-                wrap.appendChild(canvas);
-                card.appendChild(wrap);
-                grid.appendChild(card);
-                const yAxis = { ticks: {} };
-                if (cfg.isPercentage) yAxis.ticks.callback = v => v.toFixed(0) + '%';
-                if (cfg.yMin !== undefined) yAxis.min = cfg.yMin;
-                if (cfg.yMax !== undefined) yAxis.max = cfg.yMax;
-                if (cfg.yStep !== undefined) yAxis.ticks.stepSize = cfg.yStep;
-
-                let annotations = {};
-                if (cfg.id === 'ce' && limits.ce) {
-                    annotations.box1 = {
-                        type: 'box', yMin: limits.ce[0], yMax: limits.ce[1],
-                        backgroundColor: 'rgba(34, 197, 94, 0.2)', borderColor: 'rgba(34, 197, 94, 0.6)', borderWidth: 1, drawTime: 'beforeDatasetsDraw'
-                    };
-                    annotations.line1 = { type: 'line', yMin: limits.ce[0], yMax: limits.ce[0], borderColor: 'rgba(21, 128, 61, 0.8)', borderWidth: 2, borderDash: [6, 4] };
-                    annotations.line2 = { type: 'line', yMin: limits.ce[1], yMax: limits.ce[1], borderColor: 'rgba(21, 128, 61, 0.8)', borderWidth: 2, borderDash: [6, 4] };
-                }
-                if (cfg.id === 'no3' && limits.no3) {
-                    yAxis.max = Math.max(300, limits.no3[1] + 50);
-                    annotations.box1 = {
-                        type: 'box', yMin: limits.no3[0], yMax: limits.no3[1],
-                        backgroundColor: 'rgba(34, 197, 94, 0.2)', borderColor: 'rgba(34, 197, 94, 0.6)', borderWidth: 1, drawTime: 'beforeDatasetsDraw'
-                    };
-                    annotations.line1 = { type: 'line', yMin: limits.no3[0], yMax: limits.no3[0], borderColor: 'rgba(21, 128, 61, 0.8)', borderWidth: 2, borderDash: [6, 4] };
-                    annotations.line2 = { type: 'line', yMin: limits.no3[1], yMax: limits.no3[1], borderColor: 'rgba(21, 128, 61, 0.8)', borderWidth: 2, borderDash: [6, 4] };
-                }
-
-                const chartOptions = {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: yAxis,
-                        x: { type: 'category', ticks: { maxRotation: 60, minRotation: 40, font: { size: 10 } }, grid: { display: false } }
-                    },
-                    plugins: {
-                        legend: { display: true, position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } },
-                        title: { display: true, text: cfg.title, font: { size: 13, weight: '700' }, color: '#1a1a1a', padding: { bottom: 8 } }
-                    }
-                };
-
-                if (Object.keys(annotations).length > 0) {
-                    chartOptions.plugins.annotation = { annotations };
-                }
-
-                const ch = new Chart(canvas.getContext('2d'), {
-                    type: 'line',
-                    data: { labels, datasets },
-                    options: chartOptions
-                });
-                activeCharts.push(ch);
-            });
-            if (grid.children.length === 0) grid.innerHTML = '<p class="inline-alert info">No se pudieron generar gráficos. Verifica el formato de los datos.</p>';
+            if (!isNaN(dreVal) && dreVal > 0) { valveStats[vNum].dreSum += dreVal; valveStats[vNum].dreCount++; }
+            if (!isNaN(emiVal) && emiVal > 0) { valveStats[vNum].emiSum += emiVal; valveStats[vNum].emiCount++; }
         }
+    });
+    
+    const valves = Object.keys(valveStats).map(Number).sort((a, b) => a - b);
+    
+    if (valves.length === 0) {
+        emptyState.style.display = 'flex';
+        emptyState.innerHTML = '<p>No hay datos de Conductividad para la semana o filtros seleccionados.</p>';
+        contentState.style.display = 'none';
+        return;
+    }
+    
+    emptyState.style.display = 'none';
+    contentState.style.display = 'block';
+    
+    const labels = valves.map(v => {
+        const variety = getVarietyForValve(v);
+        const blocks = getBlockForValve(v);
+        const blockNum = blocks.length > 0 ? blocks[0].replace('Bloque ', '') : '';
+        return [variety, `V${v}`, `B${blockNum}`];
+    });
 
-        /* ── REPORTE SEMANAL ── */
-        function getValuesForFirstAlertSequence(dataRow, targetRow, targetValue = null) {
-            if (!dataRow) return null;
-            let consecutive = 0, vals = [];
-            const start = Math.max(1, dataRow.length - 6);
-            for (let i = start; i < dataRow.length; i++) {
-                const cur = parseNumericValue(dataRow[i]);
-                const tgt = targetValue !== null ? targetValue : parseNumericValue(targetRow?.[i]);
-                if (!isNaN(cur) && !isNaN(tgt) && tgt !== 0 && cur !== 0) {
-                    if (Math.abs(cur - tgt) / tgt > 0.20) { consecutive++; vals.push((cur / tgt) * 100); }
-                    else { if (consecutive >= 3) return vals; consecutive = 0; vals = []; }
-                } else { if (consecutive >= 3) return vals; consecutive = 0; vals = []; }
-            }
-            return consecutive >= 3 ? vals : null;
-        }
+    const dataDre = valves.map(v => valveStats[v].dreCount > 0 ? (valveStats[v].dreSum / valveStats[v].dreCount).toFixed(2) : null);
+    const dataEmi = valves.map(v => valveStats[v].emiCount > 0 ? (valveStats[v].emiSum / valveStats[v].emiCount).toFixed(2) : null);
+    
+    const ctx = document.getElementById('ce-weekly-canvas').getContext('2d');
+    if (weeklyCEChart) weeklyCEChart.destroy();
+    
+    const limits = getLimitsForValve(valves[0]);
+    let yMinGreen = limits?.ce ? limits.ce[0] : 2.4; 
+    let yMaxGreen = limits?.ce ? limits.ce[1] : 3.0;
 
-        function generateWeeklyReport() {
-            reportContainer.innerHTML = '';
-            const sheetNames = workbookData.SheetNames;
-            let totalSum = 0, totalCount = 0;
-            const blockData = {};
-            const redAlerts = { ce: [], ph: [], ejecucion: [] };
+    const chartTitle = fVariedad ? `C.E Drenaje y Emisor - ${fVariedad}` : `Resumen C.E Drenaje y Emisor por Válvula`;
 
-            sheetNames.forEach(sn => {
-                const ws = workbookData.Sheets[sn];
-                const json = getSheetJson(ws);
-                const indices = findRowIndices(json);
-                const m = sn.match(/\((\d+)\)/);
-                const vn = m ? parseInt(m[1]) : null;
-                if (!vn) return;
-                const blocks = getBlockForValve(vn);
-                if (!blocks.length) return;
-                blocks.forEach(bn => { if (!blockData[bn]) blockData[bn] = { sum: 0, count: 0 }; });
-                if (indices.ejecucion !== -1 && json.length > indices.ejecucion) {
-                    const exRow = json[indices.ejecucion];
-                    const last6 = exRow.slice(1).slice(-6);
-                    last6.forEach(v => {
-                        const n = parseNumericValue(v);
-                        if (!isNaN(n) && n > 0) {
-                            totalSum += n; totalCount++;
-                            blocks.forEach(bn => { blockData[bn].sum += n; blockData[bn].count++; });
-                        }
-                    });
-                }
-                const ceVals = (indices.ceDre !== -1 && indices.ceEsp !== -1) ? getValuesForFirstAlertSequence(json[indices.ceDre], json[indices.ceEsp]) : null;
-                if (ceVals && !redAlerts.ce.some(a => a.valveNumber === vn)) redAlerts.ce.push({ valveNumber: vn, values: ceVals });
-                const phVals = (indices.phDre !== -1 && indices.phEsp !== -1) ? getValuesForFirstAlertSequence(json[indices.phDre], json[indices.phEsp]) : null;
-                if (phVals && !redAlerts.ph.some(a => a.valveNumber === vn)) redAlerts.ph.push({ valveNumber: vn, values: phVals });
-                const ejVals = (indices.ejecucion !== -1) ? getValuesForFirstAlertSequence(json[indices.ejecucion], null, 100) : null;
-                if (ejVals && !redAlerts.ejecucion.some(a => a.valveNumber === vn)) redAlerts.ejecucion.push({ valveNumber: vn, values: ejVals });
-            });
-
-            const avg = totalCount > 0 ? (totalSum / totalCount).toFixed(2) : '—';
-            const sortedBlocks = sortBlocks(Object.keys(blockData));
-
-            const renderAlerts = list => {
-                if (!list.length) return '<span class="no-alerts">✓ Sin alertas</span>';
-                return list.sort((a,b) => a.valveNumber - b.valveNumber)
-                    .map(info => `<span class="valve-badge">V${info.valveNumber} - ${getVarietyForValve(info.valveNumber)} (${info.values.map(v => v.toFixed(1)+'%').join(', ')})</span>`)
-                    .join('');
-            };
-
-            reportContainer.innerHTML = `
-                <div id="report-content-display">
-                    <div class="report-section">
-                        <div class="report-card">
-                            <div class="report-card-header green">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16"><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>
-                                Promedios de Riego — % Ejecución
-                            </div>
-                            <div class="report-card-body">
-                                <div class="big-stat">${avg}%</div>
-                                <div class="big-stat-label">Promedio general (últimos 6 días)</div>
-                                <hr class="divider">
-                                <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; color:var(--ink-400); letter-spacing:.5px; margin-bottom:8px;">Por bloque</div>
-                                ${sortedBlocks.map(bn => {
-                                    const a = blockData[bn].count > 0 ? (blockData[bn].sum / blockData[bn].count).toFixed(2) : '—';
-                                    return `<div class="block-list-item"><span class="block-name">${bn}</span><span class="block-val">${a}%</span></div>`;
-                                }).join('')}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="report-section">
-                        <div class="report-card">
-                            <div class="report-card-header red">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16"><path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg>
-                                Alertas Críticas — 3 o más días fuera de rango
-                            </div>
-                            <div class="report-card-body">
-                                <div class="alert-section-title">Conductividad Eléctrica</div>
-                                <div>${renderAlerts(redAlerts.ce)}</div>
-                                <hr class="divider">
-                                <div class="alert-section-title">pH</div>
-                                <div>${renderAlerts(redAlerts.ph)}</div>
-                                <hr class="divider">
-                                <div class="alert-section-title">% Ejecución</div>
-                                <div>${renderAlerts(redAlerts.ejecucion)}</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="report-section">
-                        <div class="report-card">
-                            <div class="report-card-header blue">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16"><path d="M.05 3.555A2 2 0 0 1 2 2h12a2 2 0 0 1 1.95 1.555L8 8.414.05 3.555ZM0 4.697v7.104l5.803-3.558L0 4.697ZM6.761 8.83l-6.57 4.026A2 2 0 0 0 2 14h12a2 2 0 0 0 1.808-1.144l-6.57-4.025L8 9.586l-1.239-.757Zm3.436-.586L16 11.801V4.697l-5.803 3.546Z"/></svg>
-                                Enviar reporte por correo
-                            </div>
-                            <div class="report-card-body">
-                                <div id="email-alert-placeholder"></div>
-                                <p style="font-size:0.78rem; color:var(--ink-500); margin-bottom:12px;">Se abrirá un borrador en tu cliente de correo. Deberás presionar <strong>Enviar</strong> manualmente.</p>
-                                <label class="email-form-label" for="email-recipients">Destinatarios (separados por coma)</label>
-                                <input type="email" class="email-input" id="email-recipients" placeholder="correo1@ejemplo.com, correo2@ejemplo.com" multiple>
-                                <button class="btn-primary-dark" id="send-report-btn">Preparar correo</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            document.getElementById('send-report-btn').addEventListener('click', sendReportByEmail);
-        }
-
-        /* ── EMAIL ── */
-        function getWeekNumber(d) {
-            d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-            return Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(), 0, 1))) / 86400000) + 1) / 7);
-        }
-
-        function sendReportByEmail() {
-            const recipients = document.getElementById('email-recipients').value.trim();
-            const alertBox = document.getElementById('email-alert-placeholder');
-            alertBox.innerHTML = '';
-            if (!recipients) {
-                alertBox.innerHTML = '<div class="inline-alert warn">Ingresa al menos un correo electrónico.</div>';
-                return;
-            }
-            const reportEl = document.getElementById('report-content-display');
-            if (!reportEl) return;
-            const doc = new DOMParser().parseFromString(reportEl.innerHTML, 'text/html');
-            let txt = 'Reporte Semanal - Camas Piloto\n====================================\n\n';
-            const avgEl = doc.querySelector('.big-stat');
-            if (avgEl) txt += `PROMEDIO GENERAL: ${avgEl.textContent.trim()}\n\n`;
-            doc.querySelectorAll('.block-list-item').forEach(li => {
-                const n = li.querySelector('.block-name')?.textContent.trim();
-                const v = li.querySelector('.block-val')?.textContent.trim();
-                if (n && v) txt += `- ${n}: ${v}\n`;
-            });
-            txt += '\nALERTAS CRÍTICAS\n--------------------\n';
-            ['Conductividad Eléctrica', 'pH', '% Ejecución'].forEach(sec => {
-                txt += `${sec}:\n`;
-                const badges = doc.querySelectorAll('.valve-badge');
-                txt += badges.length ? Array.from(badges).map(b => b.textContent.trim()).join(', ') + '\n' : 'Ninguna\n';
-            });
-            const subject = encodeURIComponent(`Reporte Semanal - Camas Piloto Semana ${getWeekNumber(new Date())}`);
-            const body = encodeURIComponent(txt);
-            const base = `mailto:${recipients}?subject=${subject}`;
-            if (body.length > 1500) {
-                const ta = document.createElement('textarea');
-                ta.className = 'email-input';
-                ta.value = txt;
-                ta.readOnly = true;
-                ta.rows = 5;
-                ta.style.marginTop = '8px';
-                const a = document.createElement('div');
-                a.className = 'inline-alert warn';
-                a.innerHTML = '<strong>Reporte extenso:</strong> cópialo y pégalo en el correo que se abrirá.';
-                alertBox.appendChild(a);
-                alertBox.appendChild(ta);
-                window.location.href = base;
-            } else {
-                window.location.href = `${base}&body=${body}`;
-            }
-        }
-
-        /* ── GRÁFICAS COMPARATIVAS ── */
-        function generateGraphsReport() {
-            graphsContainer.innerHTML = '';
-            const allValveData = {};
-            let totalCE = {s:0,c:0}, totalPH = {s:0,c:0}, totalEj = {s:0,c:0}, totalNNO3 = {s:0,c:0};
-
-            const avgPct = (dRow, tRow, tVal=null, ignZeros=false) => {
-                if (!dRow) return NaN;
-                const last6 = dRow.slice(Math.max(1, dRow.length - 6));
-                let s = 0, c = 0;
-                last6.forEach((v, i) => {
-                    const cur = parseNumericValue(v);
-                    if (ignZeros && cur === 0) return;
-                    const tgt = tVal !== null ? tVal : parseNumericValue(tRow?.[i + Math.max(1, dRow.length - 6)]);
-                    if (!isNaN(cur) && !isNaN(tgt) && tgt !== 0) { s += (cur / tgt) * 100; c++; }
-                });
-                return c > 0 ? s / c : NaN;
-            };
-            const avgRaw = (dRow, ignZeros=false) => {
-                if (!dRow) return NaN;
-                const last6 = dRow.slice(Math.max(1, dRow.length - 6));
-                let s = 0, c = 0;
-                last6.forEach(v => {
-                    const n = parseNumericValue(v);
-                    if (ignZeros && n === 0) return;
-                    if (!isNaN(n)) { s += n; c++; }
-                });
-                return c > 0 ? s / c : NaN;
-            };
-
-            workbookData.SheetNames.forEach(sn => {
-                const ws = workbookData.Sheets[sn];
-                const json = getSheetJson(ws);
-                const indices = findRowIndices(json);
-                const m = sn.match(/\((\d+)\)/);
-                const vn = m ? parseInt(m[1]) : null;
-                if (!vn || !getBlockForValve(vn).length) return;
-                const ce = (indices.ceDre !== -1 && indices.ceEsp !== -1) ? avgPct(json[indices.ceDre], json[indices.ceEsp]) : NaN;
-                const ph = (indices.phDre !== -1 && indices.phEsp !== -1) ? avgPct(json[indices.phDre], json[indices.phEsp]) : NaN;
-                const ej = (indices.ejecucion !== -1) ? avgPct(json[indices.ejecucion], null, 100, true) : NaN;
-                const nno3 = (indices.no3 !== -1) ? avgRaw(json[indices.no3], true) : NaN;
-                allValveData[vn] = { ce, ph, ejecucion: ej, nno3 };
-                if (!isNaN(ce)) { totalCE.s += ce; totalCE.c++; }
-                if (!isNaN(ph)) { totalPH.s += ph; totalPH.c++; }
-                if (!isNaN(ej)) { totalEj.s += ej; totalEj.c++; }
-                if (!isNaN(nno3)) { totalNNO3.s += nno3; totalNNO3.c++; }
-            });
-
-            const fmt = (o) => (o.c > 0 ? (o.s / o.c).toFixed(1) : '—');
-            graphsContainer.innerHTML = `
-                <div class="stat-cards-row">
-                    <div class="stat-mini-card"><div class="val">${fmt(totalEj)}%</div><div class="lbl">Ejecución promedio</div></div>
-                    <div class="stat-mini-card"><div class="val">${fmt(totalCE)}%</div><div class="lbl">CE promedio</div></div>
-                    <div class="stat-mini-card"><div class="val">${fmt(totalPH)}%</div><div class="lbl">pH promedio</div></div>
-                    <div class="stat-mini-card"><div class="val">${fmt(totalNNO3)}</div><div class="lbl">N-NO3 promedio</div></div>
-                </div>
-                <div class="charts-grid" id="bar-charts-grid"></div>
-            `;
-
-            const sortedValves = Object.keys(allValveData).sort((a, b) => a - b);
-            const labels = sortedValves.map(v => `V${v} - ${getVarietyForValve(v)}`);
-            const getColors = data => data.map(v => (!isNaN(v) && v >= 90 && v <= 110) ? 'rgba(16, 185, 129, 0.75)' : 'rgba(239, 68, 68, 0.75)');
-            const getNNO3Colors = (data, valves) => data.map((v, i) => {
-                const limits = getLimitsForValve(valves[i]);
-                if (!limits || !limits.no3) return (!isNaN(v) && v >= 150 && v <= 220) ? 'rgba(16, 185, 129, 0.75)' : 'rgba(239, 68, 68, 0.75)';
-                return (!isNaN(v) && v >= limits.no3[0] && v <= limits.no3[1]) ? 'rgba(16, 185, 129, 0.75)' : 'rgba(239, 68, 68, 0.75)';
-            });
-            const grid = document.getElementById('bar-charts-grid');
-
-            const mkBarChart = (title, chartData, colors, yAxisLabel, yMax, l1, l2) => {
-                const card = document.createElement('div');
-                card.className = 'chart-card';
-                card.style.gridColumn = '1 / -1';
-                const wrap = document.createElement('div');
-                wrap.className = 'chart-container';
-                wrap.style.height = '280px';
-                const canvas = document.createElement('canvas');
-                wrap.appendChild(canvas);
-                card.appendChild(wrap);
-                grid.appendChild(card);
-                
-                let annotations = {};
-                if (l1 !== null && l2 !== null) {
-                    annotations.l1 = { type:'line', yMin:l1, yMax:l1, borderColor:'#eab308', borderWidth:2, borderDash:[6,4] };
-                    annotations.l2 = { type:'line', yMin:l2, yMax:l2, borderColor:'#eab308', borderWidth:2, borderDash:[6,4] };
-                }
-
-                new Chart(canvas.getContext('2d'), {
-                    type: 'bar',
-                    data: {
-                        labels,
-                        datasets: [{ label: yAxisLabel, data: chartData, backgroundColor: colors, borderColor: colors.map(c => c.replace('0.75','1')), borderWidth: 1, borderRadius: 4 }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: { beginAtZero: true, max: yMax, title: { display: true, text: yAxisLabel, font: { size: 11 } } },
-                            x: { ticks: { maxRotation: 60, minRotation: 40, font: { size: 9 } }, grid: { display: false } }
-                        },
-                        plugins: {
-                            legend: { display: false },
-                            title: { display: true, text: title, font: { size: 13, weight: '700' }, color: '#1a1a1a', padding: { bottom: 8 } },
-                            annotation: { annotations }
-                        }
-                    }
-                });
-            };
-
-            mkBarChart('Cumplimiento % Ejecución', sortedValves.map(v => allValveData[v].ejecucion), getColors(sortedValves.map(v => allValveData[v].ejecucion)), 'Cumplimiento (%)', 150, 90, 110);
-            mkBarChart('Cumplimiento Conductividad Eléctrica', sortedValves.map(v => allValveData[v].ce), getColors(sortedValves.map(v => allValveData[v].ce)), 'Cumplimiento (%)', 150, 90, 110);
-            mkBarChart('Cumplimiento pH', sortedValves.map(v => allValveData[v].ph), getColors(sortedValves.map(v => allValveData[v].ph)), 'Cumplimiento (%)', 150, 90, 110);
-            mkBarChart('Valor Promedio N-NO3', sortedValves.map(v => allValveData[v].nno3), getNNO3Colors(sortedValves.map(v => allValveData[v].nno3), sortedValves), 'Valor Promedio', 300, null, null);
-        }
-
-        /* ── LÓGICA DE RESUMEN SEMANAL CE ── */
-        (function initWeeklyFilters() {
-            const selBloque = document.getElementById('filter-bloque');
-            for (let i = 50; i <= 66; i++) {
-                const op = document.createElement('option');
-                op.value = `Bloque ${i}`; op.textContent = `Bloque ${i}`;
-                selBloque.appendChild(op);
-            }
-            
-            const selValvula = document.getElementById('filter-valvula');
-            for (let i = 1; i <= 53; i++) {
-                const op = document.createElement('option');
-                op.value = i; op.textContent = `Válvula ${i}`;
-                selValvula.appendChild(op);
-            }
-        })();
-
-        function getWeekFromDateStr(dateStr) {
-            if (!dateStr || typeof dateStr !== 'string') return null;
-            // Soporte para fechas en formato numérico (serial de Excel)
-            if (!dateStr.includes('/') && !isNaN(parseInt(dateStr))) {
-                const date = new Date((parseInt(dateStr) - 25569) * 86400 * 1000);
-                dateStr = `${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()}`;
-            }
-            const parts = dateStr.split('/');
-            if (parts.length !== 3) return null;
-            const d = parseInt(parts[0], 10), m = parseInt(parts[1], 10) - 1;
-            let y = parseInt(parts[2], 10);
-            if (y < 100) y += 2000;
-            const date = new Date(y, m, d);
-            if (isNaN(date.getTime())) return null;
-            
-            const target = new Date(date.valueOf());
-            const dayNr = (date.getDay() + 6) % 7;
-            target.setDate(target.getDate() - dayNr + 3);
-            const firstThursday = target.valueOf();
-            target.setMonth(0, 1);
-            if (target.getDay() !== 4) target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
-            return 1 + Math.ceil((firstThursday - target) / 604800000);
-        }
-
-        let weeklyCEChart = null;
-
-        function renderWeeklyCEChart() {
-            if (!workbookData) return;
-            
-            const selSemana = document.getElementById('filter-semana');
-            let fSemana = selSemana.value;
-            const fVariedad = document.getElementById('filter-variedad').value;
-            const fBloque = document.getElementById('filter-bloque').value;
-            const fValvula = document.getElementById('filter-valvula').value;
-            
-            const emptyState = document.getElementById('ce-weekly-empty');
-            const contentState = document.getElementById('ce-weekly-content');
-            
-            // 1. Recopilar TODAS las semanas del archivo (sin importar filtros) para no aislar opciones
-            if (selSemana.dataset.loaded !== workbookData.SheetNames[0]) {
-                const globalWeeks = new Set();
-                workbookData.SheetNames.forEach(sheetName => {
-                    const ws = workbookData.Sheets[sheetName];
-                    const json = getSheetJson(ws);
-                    if (json.length === 0) return;
-                    const headerRow = json[0];
-                    for (let i = 1; i < headerRow.length; i++) {
-                        const dateStr = String(headerRow[i]).trim();
-                        const week = getWeekFromDateStr(dateStr);
-                        if (week) globalWeeks.add(week);
-                    }
-                });
-                
-                selSemana.innerHTML = '<option value="">Todas</option>';
-                const sortedWeeks = Array.from(globalWeeks).sort((a,b)=>a-b);
-                sortedWeeks.forEach(w => {
-                    const op = document.createElement('option');
-                    op.value = w; op.textContent = `Semana ${w}`;
-                    selSemana.appendChild(op);
-                });
-                
-                if (sortedWeeks.length > 0) {
-                    selSemana.value = sortedWeeks[0]; 
-                    fSemana = String(sortedWeeks[0]);
-                }
-                selSemana.dataset.loaded = workbookData.SheetNames[0];
-            }
-
-            // 2. Filtrar hojas según los selectores (Variedad, Bloque, Válvula)
-            const matchingSheets = workbookData.SheetNames.filter(name => {
-                const m = name.match(/\((\d+)\)/);
-                if (!m) return false;
-                const v = parseInt(m[1]);
-                if (fValvula && v !== parseInt(fValvula)) return false;
-                if (fBloque && !getBlockForValve(v).includes(fBloque)) return false;
-                if (fVariedad && getVarietyForValve(v) !== fVariedad) return false;
-                return true;
-            });
-            
-            if (matchingSheets.length === 0) {
-                emptyState.style.display = 'flex';
-                emptyState.innerHTML = '<p>No se encontraron válvulas para los filtros seleccionados.</p>';
-                contentState.style.display = 'none';
-                return;
-            }
-            
-            const valveStats = {};
-            
-            matchingSheets.forEach(sheetName => {
-                const m = sheetName.match(/\((\d+)\)/);
-                const vNum = parseInt(m[1]);
-                const ws = workbookData.Sheets[sheetName];
-                const json = getSheetJson(ws);
-                if (json.length === 0) return;
-                const indices = findRowIndices(json);
-                if (indices.ceDrenajeReal === -1 || indices.ceEmisorReal === -1) return;
-                
-                const headerRow = json[0];
-                const rowDre = json[indices.ceDrenajeReal];
-                const rowEmi = json[indices.ceEmisorReal];
-                
-                if (!valveStats[vNum]) {
-                    valveStats[vNum] = { dreSum: 0, dreCount: 0, emiSum: 0, emiCount: 0 };
-                }
-                
-                for (let i = 1; i < headerRow.length; i++) {
-                    const dateStr = String(headerRow[i]).trim();
-                    const week = getWeekFromDateStr(dateStr);
-                    
-                    if (fSemana && week !== parseInt(fSemana)) continue;
-                    
-                    const dreVal = parseNumericValue(rowDre[i]);
-                    const emiVal = parseNumericValue(rowEmi[i]);
-                    
-                    if (!isNaN(dreVal) && dreVal > 0) { valveStats[vNum].dreSum += dreVal; valveStats[vNum].dreCount++; }
-                    if (!isNaN(emiVal) && emiVal > 0) { valveStats[vNum].emiSum += emiVal; valveStats[vNum].emiCount++; }
-                }
-            });
-            
-            const valves = Object.keys(valveStats).map(Number).sort((a, b) => a - b);
-            
-            if (valves.length === 0) {
-                emptyState.style.display = 'flex';
-                emptyState.innerHTML = '<p>No hay datos de Conductividad para la semana/filtros seleccionados.</p>';
-                contentState.style.display = 'none';
-                return;
-            }
-            
-            emptyState.style.display = 'none';
-            contentState.style.display = 'block';
-            
-            // 3. Preparar Datos para la Gráfica
-            // Etiquetas de eje X con múltiples líneas: Variedad, Número Válvula, Número Bloque
-            const labels = valves.map(v => {
-                const variety = getVarietyForValve(v);
-                const blocks = getBlockForValve(v);
-                const blockNum = blocks.length > 0 ? blocks[0].replace('Bloque ', '') : '';
-                return [variety, String(v), blockNum];
-            });
-
-            const dataDre = valves.map(v => valveStats[v].dreCount > 0 ? (valveStats[v].dreSum / valveStats[v].dreCount).toFixed(2) : null);
-            const dataEmi = valves.map(v => valveStats[v].emiCount > 0 ? (valveStats[v].emiSum / valveStats[v].emiCount).toFixed(2) : null);
-            
-            const ctx = document.getElementById('ce-weekly-canvas').getContext('2d');
-            if (weeklyCEChart) weeklyCEChart.destroy();
-            
-            // Determinar zona verde según los límites de la primera válvula graficada
-            const limits = getLimitsForValve(valves[0]);
-            let yMinGreen = 2.4; 
-            let yMaxGreen = 3.4;
-            if (limits && limits.ce) {
-                yMinGreen = limits.ce[0];
-                yMaxGreen = limits.ce[1] + 0.4; // Ajuste visual de la imagen (hasta 3.4 para Freedom)
-            }
-
-            const chartTitle = fVariedad ? `C.E Drenaje y Emisor - ${fVariedad}` : `C.E Drenaje y Emisor (Múltiples Variedades)`;
-
-            weeklyCEChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        // Drenaje (Café) se dibuja primero (queda atrás) - Barra ancha
-                        { 
-                            label: 'C.E Drenaje', 
-                            data: dataDre, 
-                            backgroundColor: '#b45f06', 
-                            borderColor: '#8e4a04', 
-                            borderWidth: 1, 
-                            grouped: false,
-                            barPercentage: 0.7,      // Más ancha
-                            categoryPercentage: 0.8
-                        },
-                        // Emisor (Rojo) se dibuja después (queda al frente) - Barra delgada
-                        { 
-                            label: 'C.E Emisor', 
-                            data: dataEmi, 
-                            backgroundColor: '#ff0000', 
-                            borderColor: '#cc0000', 
-                            borderWidth: 1, 
-                            grouped: false,
-                            barPercentage: 0.35,     // Más delgada para que no tape la café
-                            categoryPercentage: 0.8
-                        }
-                    ]
+    weeklyCEChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                { 
+                    label: 'C.E Drenaje', 
+                    data: dataDre, 
+                    backgroundColor: '#b45f06', 
+                    borderColor: '#8e4a04', 
+                    borderWidth: 1, 
+                    grouped: false,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.8
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'C.E. (mS/cm)',
-                                font: { size: 11, weight: 'bold' }
-                            },
-                            suggestedMax: 4.0 // Da un buen margen visual superior
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: { 
-                                font: { size: 10 },
-                                maxRotation: 0 // Mantiene los labels (Variedad, Válvula) en horizontal
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: { 
-                            display: true, 
-                            position: 'bottom',
-                            labels: { usePointStyle: true, boxWidth: 10 }
-                        },
-                        title: { 
-                            display: true, 
-                            text: chartTitle, 
-                            font: { size: 14, weight: '700' },
-                            padding: { bottom: 12 }
-                        },
-                        annotation: {
-                            annotations: {
-                                zonaOptima: {
-                                    type: 'box',
-                                    yMin: yMinGreen,
-                                    yMax: yMaxGreen,
-                                    backgroundColor: 'rgba(34, 197, 94, 0.12)', // Franja verde suave
-                                    borderWidth: 1,
-                                    borderColor: 'rgba(34, 197, 94, 0.4)',
-                                    drawTime: 'beforeDatasetsDraw', // Se dibuja al fondo
-                                    label: {
-                                        display: true,
-                                        content: 'Rango Óptimo',
-                                        position: 'start',
-                                        color: 'rgba(21, 128, 61, 0.7)',
-                                        font: { size: 9 }
-                                    }
-                                }
-                            }
+                { 
+                    label: 'C.E Emisor', 
+                    data: dataEmi, 
+                    backgroundColor: '#ff0000', 
+                    borderColor: '#cc0000', 
+                    borderWidth: 1, 
+                    grouped: false,
+                    barPercentage: 0.35,
+                    categoryPercentage: 0.8
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { 
+                y: { 
+                    beginAtZero: true, 
+                    suggestedMax: 4.0, 
+                    title: { display: true, text: 'Conductividad Eléctrica (mS/cm)', font: { size: 12, weight: 'bold' } } 
+                },
+                x: { 
+                    ticks: { maxRotation: 0, minRotation: 0, font: { size: 10 } },
+                    grid: { display: false }
+                }
+            },
+            plugins: { 
+                legend: { display: true, position: 'bottom' }, 
+                title: { display: true, text: chartTitle, font: { size: 15, weight: 'bold' } },
+                annotation: {
+                    annotations: {
+                        greenBand: {
+                            type: 'box',
+                            yMin: yMinGreen,
+                            yMax: yMaxGreen,
+                            backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                            borderColor: 'rgba(34, 197, 94, 0.4)',
+                            borderWidth: 1,
+                            drawTime: 'beforeDatasetsDraw'
                         }
                     }
                 }
-            });
-        } // Fin de la función renderWeeklyCEChart
+            }
+        }
+    });
+} // Fin de la función renderWeeklyCEChart
 
         // === AGREGAR EVENT LISTENERS PARA QUE LOS FILTROS FUNCIONEN ===
         document.addEventListener('DOMContentLoaded', () => {
