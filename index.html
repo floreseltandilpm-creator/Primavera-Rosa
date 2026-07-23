@@ -1838,14 +1838,14 @@
                 yMaxGreen = limits.ce[1] + 0.4; // Ajuste visual de la imagen (hasta 3.4 para Freedom)
             }
 
-            const chartTitle = fVariedad ? `C.E Drenaje Rosa ${fVariedad}` : `C.E Drenaje Rosa (Múltiples Variedades)`;
+            const chartTitle = fVariedad ? `C.E Drenaje y Emisor - ${fVariedad}` : `C.E Drenaje y Emisor (Múltiples Variedades)`;
 
             weeklyCEChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [
-                        // Drenaje (Café) se dibuja primero (queda atrás)
+                        // Drenaje (Café) se dibuja primero (queda atrás) - Barra ancha
                         { 
                             label: 'C.E Drenaje', 
                             data: dataDre, 
@@ -1853,10 +1853,10 @@
                             borderColor: '#8e4a04', 
                             borderWidth: 1, 
                             grouped: false,
-                            barPercentage: 0.6,
+                            barPercentage: 0.7,      // Más ancha
                             categoryPercentage: 0.8
                         },
-                        // Emisor (Rojo) se dibuja después (queda al frente solapado)
+                        // Emisor (Rojo) se dibuja después (queda al frente) - Barra delgada
                         { 
                             label: 'C.E Emisor', 
                             data: dataEmi, 
@@ -1864,7 +1864,7 @@
                             borderColor: '#cc0000', 
                             borderWidth: 1, 
                             grouped: false,
-                            barPercentage: 0.6,
+                            barPercentage: 0.35,     // Más delgada para que no tape la café
                             categoryPercentage: 0.8
                         }
                     ]
@@ -1872,152 +1872,67 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: { 
-                        y: { 
-                            beginAtZero: true, 
-                            max: 4, 
-                            title: { display: true, text: 'Conductividad Electrica (mS/cm)', font: { size: 12 } } 
-                        },
-                        x: { 
-                            ticks: { 
-                                maxRotation: 0, 
-                                minRotation: 0, 
-                                font: { size: 10, family: 'sans-serif' }
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'C.E. (mS/cm)',
+                                font: { size: 11, weight: 'bold' }
                             },
-                            grid: { display: false }
+                            suggestedMax: 4.0 // Da un buen margen visual superior
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { 
+                                font: { size: 10 },
+                                maxRotation: 0 // Mantiene los labels (Variedad, Válvula) en horizontal
+                            }
                         }
                     },
-                    plugins: { 
-                        legend: { display: false }, 
-                        title: { display: true, text: chartTitle, font: { size: 16, weight: 'bold' } },
+                    plugins: {
+                        legend: { 
+                            display: true, 
+                            position: 'bottom',
+                            labels: { usePointStyle: true, boxWidth: 10 }
+                        },
+                        title: { 
+                            display: true, 
+                            text: chartTitle, 
+                            font: { size: 14, weight: '700' },
+                            padding: { bottom: 12 }
+                        },
                         annotation: {
                             annotations: {
-                                greenBand: {
+                                zonaOptima: {
                                     type: 'box',
                                     yMin: yMinGreen,
                                     yMax: yMaxGreen,
-                                    backgroundColor: 'rgba(134, 203, 114, 0.4)', // Verde claro semi-transparente
-                                    borderWidth: 0,
-                                    drawTime: 'beforeDatasetsDraw' // Dibujar detrás de las barras
+                                    backgroundColor: 'rgba(34, 197, 94, 0.12)', // Franja verde suave
+                                    borderWidth: 1,
+                                    borderColor: 'rgba(34, 197, 94, 0.4)',
+                                    drawTime: 'beforeDatasetsDraw', // Se dibuja al fondo
+                                    label: {
+                                        display: true,
+                                        content: 'Rango Óptimo',
+                                        position: 'start',
+                                        color: 'rgba(21, 128, 61, 0.7)',
+                                        font: { size: 9 }
+                                    }
                                 }
                             }
                         }
                     }
                 }
             });
-        }
+        } // Fin de la función renderWeeklyCEChart
 
-        document.getElementById('filter-semana').addEventListener('change', renderWeeklyCEChart);
-        document.getElementById('filter-variedad').addEventListener('change', renderWeeklyCEChart);
-        document.getElementById('filter-bloque').addEventListener('change', renderWeeklyCEChart);
-        document.getElementById('filter-valvula').addEventListener('change', renderWeeklyCEChart);
-
-    </script>
-    <div id="print-container" style="display: none;"></div>
-    
-    <script>
-        async function generatePrintAllReport() {
-            if (!workbookData) return alert('Por favor, carga un archivo Excel primero.');
-
-            const printBtn = document.getElementById('print-btn');
-            const originalText = printBtn.innerHTML;
-            printBtn.innerHTML = 'Preparando Páginas...';
-            printBtn.disabled = true;
-
-            const printContainer = document.getElementById('print-container');
-            printContainer.innerHTML = '';
-            
-            // Obtener hojas que corresponden a válvulas
-            const sheetNames = workbookData.SheetNames.filter(name => {
-                const m = name.match(/\((\d+)\)/);
-                return m && getBlockForValve(parseInt(m[1])).length > 0;
-            });
-            
-            // Re-ordenar válvulas por bloque y número
-            sheetNames.sort((a, b) => {
-                const va = parseInt(a.match(/\((\d+)\)/)[1]);
-                const vb = parseInt(b.match(/\((\d+)\)/)[1]);
-                return va - vb;
-            });
-
-            const monthSelect = document.getElementById('month-select');
-            const monthText = monthSelect.options[monthSelect.selectedIndex]?.text || '';
-            const year = new Date().getFullYear();
-
-            // Generar contenedor para cada hoja (válvula)
-            sheetNames.forEach(sheetName => {
-                const match = sheetName.match(/\((\d+)\)/);
-                const valveNumber = match ? parseInt(match[1]) : null;
-                const block = valveNumber ? getBlockForValve(valveNumber).join('-') : '';
-                
-                const page = document.createElement('div');
-                page.className = 'print-page';
-                
-                // Encabezado formal de impresión
-                page.innerHTML = `
-                    <table class="print-header-table">
-                        <tr>
-                            <td rowspan="2" style="font-size: 11pt; font-weight: bold; width: 15%;">TANDIL</td>
-                            <td colspan="4" class="title-cell" style="width: 70%;">
-                                FLORES EL TANDIL S.A.S - SEDE PRIMAVERA<br>
-                                CONTROL DEL FERTIRRIEGO ROSA HIDROPONÍA<br>
-                                PRODUCCIÓN ROSA
-                            </td>
-                            <td style="width: 15%;">Versión 2<br>Diciembre 2023<br>Página 1 de 1</td>
-                        </tr>
-                        <tr style="background-color: #f3f4f6;">
-                            <td>AÑO: <strong>${year}</strong></td>
-                            <td>MES: <strong>${monthText.toUpperCase()}</strong></td>
-                            <td>BLOQUE: <strong>${block}</strong></td>
-                            <td>VÁLVULA: <strong>${valveNumber}</strong></td>
-                        </tr>
-                    </table>
-                `;
-
-                const ws = workbookData.Sheets[sheetName];
-                const json = getSheetJson(ws);
-                if (json.length > 0) {
-                    const indices = findRowIndices(json);
-                    
-                    const contentWrapper = document.createElement('div');
-                    contentWrapper.className = 'print-content-wrapper';
-                    
-                    createTable(contentWrapper, json, indices);
-                    createCharts(contentWrapper, json, sheetName, indices);
-                    
-                    page.appendChild(contentWrapper);
-                } else {
-                    const empty = document.createElement('div');
-                    empty.textContent = "Hoja vacía o sin formato válido.";
-                    page.appendChild(empty);
-                }
-                
-                printContainer.appendChild(page);
-            });
-
-            // Permitir que Chart.js dibuje todas las gráficas generadas en el DOM oculto
-            await new Promise(r => setTimeout(r, 1200));
-            
-            // Disparar ventana de impresión
-            window.print();
-            
-            // Retornar al estado original
-            setTimeout(() => {
-                printContainer.innerHTML = '';
-                printBtn.innerHTML = originalText;
-                printBtn.disabled = false;
-            }, 1000);
-        }
-
-        /* ── RECUPERAR SESIÓN ── */
-        getFileFromDB().then(stored => {
-            if (stored?.data && stored?.filename) {
-                loadingEl.style.display = 'flex';
-                try {
-                    processAndDisplayWorkbook(stored.data, stored.filename);
-                } catch(e) { console.warn('Restore error', e); }
-                finally { loadingEl.style.display = 'none'; }
-            }
+        // === AGREGAR EVENT LISTENERS PARA QUE LOS FILTROS FUNCIONEN ===
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('filter-semana').addEventListener('change', renderWeeklyCEChart);
+            document.getElementById('filter-variedad').addEventListener('change', renderWeeklyCEChart);
+            document.getElementById('filter-bloque').addEventListener('change', renderWeeklyCEChart);
+            document.getElementById('filter-valvula').addEventListener('change', renderWeeklyCEChart);
         });
     </script>
 </body>
