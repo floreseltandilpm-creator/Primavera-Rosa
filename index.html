@@ -1681,17 +1681,15 @@
                 op.value = i; op.textContent = `Válvula ${i}`;
                 selValvula.appendChild(op);
             }
-            
-            const selSemana = document.getElementById('filter-semana');
-            for (let i = 1; i <= 53; i++) {
-                const op = document.createElement('option');
-                op.value = i; op.textContent = `Semana ${i}`;
-                selSemana.appendChild(op);
-            }
         })();
 
         function getWeekFromDateStr(dateStr) {
             if (!dateStr || typeof dateStr !== 'string') return null;
+            // Soporte para fechas en formato numérico (serial de Excel)
+            if (!dateStr.includes('/') && !isNaN(parseInt(dateStr))) {
+                const date = new Date((parseInt(dateStr) - 25569) * 86400 * 1000);
+                dateStr = `${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()}`;
+            }
             const parts = dateStr.split('/');
             if (parts.length !== 3) return null;
             const d = parseInt(parts[0], 10), m = parseInt(parts[1], 10) - 1;
@@ -1714,7 +1712,8 @@
         function renderWeeklyCEChart() {
             if (!workbookData) return;
             
-            const fSemana = document.getElementById('filter-semana').value;
+            const selSemana = document.getElementById('filter-semana');
+            let fSemana = selSemana.value;
             const fVariedad = document.getElementById('filter-variedad').value;
             const fBloque = document.getElementById('filter-bloque').value;
             const fValvula = document.getElementById('filter-valvula').value;
@@ -1741,52 +1740,81 @@
                 return;
             }
             
-            const dayStats = {};
+            const valveStats = {};
+            const availableWeeks = new Set();
             
             matchingSheets.forEach(sheetName => {
+                const m = sheetName.match(/\((\d+)\)/);
+                const vNum = parseInt(m[1]);
+                
                 const ws = workbookData.Sheets[sheetName];
                 const json = getSheetJson(ws);
                 if (json.length === 0) return;
                 const indices = findRowIndices(json);
-                
                 if (indices.ceDrenajeReal === -1 || indices.ceEmisorReal === -1) return;
                 
                 const headerRow = json[0];
                 const rowDre = json[indices.ceDrenajeReal];
                 const rowEmi = json[indices.ceEmisorReal];
                 
+                if (!valveStats[vNum]) {
+                    valveStats[vNum] = { dreSum: 0, dreCount: 0, emiSum: 0, emiCount: 0 };
+                }
+                
                 for (let i = 1; i < headerRow.length; i++) {
                     const dateStr = String(headerRow[i]).trim();
+                    const week = getWeekFromDateStr(dateStr);
+                    if (week) availableWeeks.add(week);
+                }
+            });
+
+            // Actualizar selector de semanas dinámicamente según el archivo
+            if (selSemana.dataset.loaded !== workbookData.SheetNames[0]) {
+                selSemana.innerHTML = '<option value="">Todas</option>';
+                const sortedWeeks = Array.from(availableWeeks).sort((a,b)=>a-b);
+                sortedWeeks.forEach(w => {
+                    const op = document.createElement('option');
+                    op.value = w; op.textContent = `Semana ${w}`;
+                    selSemana.appendChild(op);
+                });
+                
+                if (sortedWeeks.length > 0) {
+                    selSemana.value = sortedWeeks[0]; // Seleccionar la primera semana disponible (ej. 23)
+                    fSemana = String(sortedWeeks[0]);
+                }
+                selSemana.dataset.loaded = workbookData.SheetNames[0]; // Marcar como cargado para este archivo
+            }
+
+            // Segunda pasada para sumar datos con el filtro de semana correcto
+            matchingSheets.forEach(sheetName => {
+                const m = sheetName.match(/\((\d+)\)/);
+                const vNum = parseInt(m[1]);
+                const ws = workbookData.Sheets[sheetName];
+                const json = getSheetJson(ws);
+                const indices = findRowIndices(json);
+                const headerRow = json[0];
+                const rowDre = json[indices.ceDrenajeReal];
+                const rowEmi = json[indices.ceEmisorReal];
+                
+                for (let i = 1; i < headerRow.length; i++) {
+                    const dateStr = String(headerRow[i]).trim();
+                    const week = getWeekFromDateStr(dateStr);
+                    
+                    if (fSemana && week !== parseInt(fSemana)) continue;
+                    
                     const dreVal = parseNumericValue(rowDre[i]);
                     const emiVal = parseNumericValue(rowEmi[i]);
                     
-                    if (dateStr && (!isNaN(dreVal) || !isNaN(emiVal))) {
-                        const week = getWeekFromDateStr(dateStr);
-                        
-                        if (fSemana && week !== parseInt(fSemana)) continue;
-                        
-                        if (!dayStats[dateStr]) {
-                            dayStats[dateStr] = {
-                                dreSum: 0, dreCount: 0, emiSum: 0, emiCount: 0, week: week,
-                                sortKey: (function(){
-                                   const p = dateStr.split('/');
-                                   if(p.length===3) return parseInt(p[2])*10000 + parseInt(p[1])*100 + parseInt(p[0]);
-                                   return 0;
-                                })()
-                            };
-                        }
-                        
-                        if (!isNaN(dreVal) && dreVal > 0) { dayStats[dateStr].dreSum += dreVal; dayStats[dateStr].dreCount++; }
-                        if (!isNaN(emiVal) && emiVal > 0) { dayStats[dateStr].emiSum += emiVal; dayStats[dateStr].emiCount++; }
-                    }
+                    if (!isNaN(dreVal) && dreVal > 0) { valveStats[vNum].dreSum += dreVal; valveStats[vNum].dreCount++; }
+                    if (!isNaN(emiVal) && emiVal > 0) { valveStats[vNum].emiSum += emiVal; valveStats[vNum].emiCount++; }
                 }
             });
             
-            const dates = Object.keys(dayStats).sort((a, b) => dayStats[a].sortKey - dayStats[b].sortKey);
+            const valves = Object.keys(valveStats).map(Number).sort((a, b) => a - b);
             
-            if (dates.length === 0) {
+            if (valves.length === 0) {
                 emptyState.style.display = 'flex';
-                emptyState.innerHTML = '<p>No hay datos de Conductividad para la semana/filtros seleccionados en el archivo actual.</p>';
+                emptyState.innerHTML = '<p>No hay datos de Conductividad para la semana/filtros seleccionados.</p>';
                 contentState.style.display = 'none';
                 return;
             }
@@ -1794,27 +1822,33 @@
             emptyState.style.display = 'none';
             contentState.style.display = 'block';
             
-            const labels = dates;
-            const dataDre = dates.map(d => dayStats[d].dreCount > 0 ? (dayStats[d].dreSum / dayStats[d].dreCount).toFixed(2) : null);
-            const dataEmi = dates.map(d => dayStats[d].emiCount > 0 ? (dayStats[d].emiSum / dayStats[d].emiCount).toFixed(2) : null);
+            const labels = valves.map(v => `V${v} - ${getVarietyForValve(v)}`);
+            const dataDre = valves.map(v => valveStats[v].dreCount > 0 ? (valveStats[v].dreSum / valveStats[v].dreCount).toFixed(2) : null);
+            const dataEmi = valves.map(v => valveStats[v].emiCount > 0 ? (valveStats[v].emiSum / valveStats[v].emiCount).toFixed(2) : null);
             
             const ctx = document.getElementById('ce-weekly-canvas').getContext('2d');
             if (weeklyCEChart) weeklyCEChart.destroy();
             
             weeklyCEChart = new Chart(ctx, {
-                type: 'line',
+                type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'CE Drenaje Promedio', data: dataDre, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 2, tension: 0.3, fill: true },
-                        { label: 'CE Emisor Promedio', data: dataEmi, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 2, tension: 0.3, fill: true }
+                        { label: 'CE Drenaje (Promedio)', data: dataDre, backgroundColor: '#ef4444', borderColor: '#b91c1c', borderWidth: 1, borderRadius: 4 },
+                        { label: 'CE Emisor (Promedio)', data: dataEmi, backgroundColor: '#3b82f6', borderColor: '#1d4ed8', borderWidth: 1, borderRadius: 4 }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true, title: { display: true, text: 'Conductividad Eléctrica (CE)' } } },
-                    plugins: { legend: { position: 'top' }, title: { display: true, text: 'Resumen Semanal de CE (Drenaje vs Emisor)' } }
+                    scales: { 
+                        y: { beginAtZero: true, title: { display: true, text: 'Conductividad Eléctrica (CE)', font: { size: 12 } } },
+                        x: { ticks: { maxRotation: 45, minRotation: 45, font: { size: 10 } } }
+                    },
+                    plugins: { 
+                        legend: { position: 'top' }, 
+                        title: { display: true, text: `Promedio Semanal CE por Válvula ${fSemana ? '(Semana '+fSemana+')' : '(Todas las semanas)'}`, font: { size: 14 } } 
+                    }
                 }
             });
         }
