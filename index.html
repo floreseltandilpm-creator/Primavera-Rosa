@@ -68,7 +68,7 @@
             font-size: 1.2rem;
             font-weight: 800;
             margin: 0;
-            color: #2a7a2a; /* logo color */
+            color: #2a7a2a;
             display: flex;
             align-items: center;
             gap: 6px;
@@ -595,7 +595,7 @@
                 page-break-after: always;
                 display: flex;
                 flex-direction: column;
-                height: 98vh; /* Maximiza el uso de la pagina */
+                height: 98vh;
                 padding: 10px;
                 box-sizing: border-box;
             }
@@ -636,7 +636,7 @@
             /* Tabla de Datos */
             .table-scroll-wrap {
                 margin-bottom: 5px !important;
-                flex: 0 0 38% !important; /* Aproximadamente 40% del espacio de contenido */
+                flex: 0 0 38% !important;
                 overflow: hidden !important; 
             }
             .data-table {
@@ -646,16 +646,16 @@
             .data-table th, .data-table td {
                 border: 1px solid black !important;
                 padding: 3px 4px !important;
-                font-size: 0.75rem !important; /* Tamaño más legible */
+                font-size: 0.75rem !important;
             }
 
             /* Gráficas al máximo */
             .charts-grid {
                 display: flex !important;
                 flex-wrap: wrap !important;
-                flex: 0 0 60% !important; /* 60% del espacio restante */
+                flex: 0 0 60% !important;
                 gap: 5px !important;
-                align-content: stretch; /* Estirar items para llenar espacio */
+                align-content: stretch;
             }
             .chart-card {
                 flex: 1 1 48% !important;
@@ -669,6 +669,13 @@
                 flex-grow: 1 !important;
                 height: auto !important;
                 min-height: 100px;
+            }
+            .chart-container img {
+                max-width: 100% !important;
+                max-height: 100% !important;
+                height: auto !important;
+                display: block !important;
+                margin: 0 auto !important;
             }
 
             * {
@@ -686,24 +693,13 @@
         }
         body.is-printing #print-container {
             display: block !important;
-            visibility: hidden; /* Se ocultan visualmente pero ocupan espacio y se renderizan */
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
-        }
-        #print-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: white;
             z-index: 9999;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            font-family: Arial, sans-serif;
+            background: white;
         }
-        #print-overlay h2 { margin-bottom: 10px; color: var(--primary); }
     </style>
 </head>
 
@@ -800,7 +796,6 @@
                         <label for="filter-semana" style="font-size:0.8rem; font-weight:600;">Semana:</label>
                         <select id="filter-semana" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc; min-width: 120px;">
                             <option value="">Todas</option>
-                            <!-- Llenado dinámico -->
                         </select>
                     </div>
                     <div>
@@ -826,14 +821,12 @@
                         <label for="filter-bloque" style="font-size:0.8rem; font-weight:600;">Bloque:</label>
                         <select id="filter-bloque" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc; min-width: 120px;">
                             <option value="">Todos</option>
-                            <!-- Llenado 50 al 66 -->
                         </select>
                     </div>
                     <div>
                         <label for="filter-valvula" style="font-size:0.8rem; font-weight:600;">Válvula:</label>
                         <select id="filter-valvula" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc; min-width: 120px;">
                             <option value="">Todas</option>
-                            <!-- Llenado 1 al 53 -->
                         </select>
                     </div>
                 </div>
@@ -937,7 +930,7 @@
 
             const tryFetch = async (ext) => {
                 const fileName = `${month}${ext}`;
-                const r = await fetch(`./${fileName}?t=${new Date().getTime()}`); // Cache buster
+                const r = await fetch(`./${fileName}?t=${new Date().getTime()}`);
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 return { buf: await r.arrayBuffer(), fileName };
             };
@@ -1060,7 +1053,7 @@
             if (ws && ws['!ref']) {
                 try {
                     const range = XLSX.utils.decode_range(ws['!ref']);
-                    range.e.c = Math.max(range.e.c, 150); // Forzar lectura de columnas adicionales
+                    range.e.c = Math.max(range.e.c, 150);
                     ws['!ref'] = XLSX.utils.encode_range(range);
                 } catch (e) {}
             }
@@ -1146,17 +1139,15 @@
                 const label = String(row[0]).toLowerCase();
                 return searchTerms.some(term => label.includes(term));
             });
-            // Modificación: separar correctamente Emisor de Drenaje para las gráficas
             return {
                 ceEsp: findRowIdx('ce esperada', 'ce esperado'),
-                ceDre: findRowIdx('ce drenaje', 'ce emisor'), // Mantenido para lógica de reporte 
+                ceDre: findRowIdx('ce drenaje', 'ce emisor'),
                 phEsp: findRowIdx('ph esperada', 'ph esperado'),
-                phDre: findRowIdx('ph drenaje', 'ph emisor'), // Mantenido para lógica de reporte 
+                phDre: findRowIdx('ph drenaje', 'ph emisor'),
                 ejecucion: findRowIdx('% ejecución', '% ejecucion', 'ejecución'),
                 no3: findRowIdx('n-no3', 'no3'),
                 vol: findRowIdx('volumen ejecutado', 'volumen de riego'),
                 
-                // Nuevas variables estrictas para graficar AMBOS
                 ceDrenajeReal: findRowIdx('ce drenaje'),
                 ceEmisorReal: findRowIdx('ce emisor'),
                 phDrenajeReal: findRowIdx('ph drenaje'),
@@ -1188,20 +1179,19 @@
             wrap.style.marginBottom = '16px';
             const table = document.createElement('table');
             table.className = 'data-table';
-            // Thead
+            
             const thead = document.createElement('thead');
             const hr = document.createElement('tr');
             (data[0] || []).forEach(h => { const th = document.createElement('th'); th.textContent = h ?? ''; hr.appendChild(th); });
             thead.appendChild(hr);
             table.appendChild(thead);
-            // Tbody
+            
             const tbody = document.createElement('tbody');
             data.slice(1).forEach((rowData, ri) => {
                 const origIdx = ri + 1;
                 if (!rowData || rowData.length === 0) return;
                 const rowLabel = rowData[0] ? String(rowData[0]).trim().toLowerCase() : '';
                 
-                // Ocultar filas especificadas
                 if (rowLabel.includes('volumen 2') || rowLabel.includes('volumen 3') || rowLabel === 'evt') return;
 
                 const isDrenaje = rowLabel.includes('%') && rowLabel.includes('drenaje');
@@ -1243,7 +1233,7 @@
         }
 
         /* ── GRÁFICAS POR VÁLVULA ── */
-        function createCharts(container, data, sheetName, indices) {
+        function createCharts(container, data, sheetName, indices, isForPrint = false) {
             const match = sheetName ? sheetName.match(/\((\d+)\)/) : null;
             const valveNumber = match ? parseInt(match[1]) : null;
             const limits = getLimitsForValve(valveNumber);
@@ -1253,13 +1243,12 @@
             container.appendChild(grid);
             const cleanValue = (v, isPct = false) => {
                 const n = parseNumericValue(v);
-                if (isNaN(n) || n === 0) return null; // No grafica el valor si es 0
+                if (isNaN(n) || n === 0) return null;
                 if (isPct && Math.abs(n) <= 1 && v !== '0' && v !== 0) return n * 100;
                 return n;
             };
             const configs = [];
             
-            // Modificación: Gráfica de CE permitiendo ambas filas (Emisor y Drenaje)
             const ceRows = [];
             if (indices.ceEmisorReal !== -1) ceRows.push(indices.ceEmisorReal);
             if (indices.ceDrenajeReal !== -1) ceRows.push(indices.ceDrenajeReal);
@@ -1267,11 +1256,9 @@
             if (ceRows.length > 0) {
                 configs.push({ id: 'ce', title: 'Conductividad Eléctrica', headerRowIndex: 4, dataRowIndices: ceRows, maxRow: Math.max(...ceRows), colors: ['#0ea5e9', '#f97316'], isPercentage: false });
             } else if (indices.ceDre !== -1) {
-                // Fallback por si la hoja no tiene ninguna pero coincide en la lógica anterior
                 configs.push({ id: 'ce', title: 'Conductividad Eléctrica', headerRowIndex: 4, dataRowIndices: [indices.ceDre], maxRow: indices.ceDre, colors: ['#f97316'], isPercentage: false });
             }
 
-            // Modificación: Gráfica de pH permitiendo ambas filas (Emisor y Drenaje)
             const phRows = [];
             if (indices.phEmisorReal !== -1) phRows.push(indices.phEmisorReal);
             if (indices.phDrenajeReal !== -1) phRows.push(indices.phDrenajeReal);
@@ -1279,7 +1266,6 @@
             if (phRows.length > 0) {
                 configs.push({ id: 'ph', title: 'pH', headerRowIndex: 4, dataRowIndices: phRows, maxRow: Math.max(...phRows), colors: ['#8b5cf6', '#ec4899'], isPercentage: false });
             } else if (indices.phDre !== -1) {
-                // Fallback
                 configs.push({ id: 'ph', title: 'pH', headerRowIndex: 4, dataRowIndices: [indices.phDre], maxRow: indices.phDre, colors: ['#ec4899'], isPercentage: false });
             }
 
@@ -1295,7 +1281,6 @@
                 if (!hRow || dRows.some(r => !r)) return;
                 const labels = [], dsData = dRows.map(() => []);
                 
-                // Fijar límite de columnas máximo para evitar que el Excel corte las fechas vacías
                 const maxCol = Math.max(hRow?.length || 0, ...dRows.map(r => r ? r.length : 0));
                 for (let i = 1; i < maxCol; i++) {
                     const isAllEmpty = dRows.every(row => row[i] === null || row[i] === undefined || String(row[i]).trim() === '');
@@ -1351,6 +1336,7 @@
                 const chartOptions = {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: isForPrint ? false : {},
                     scales: {
                         y: yAxis,
                         x: { type: 'category', ticks: { maxRotation: 60, minRotation: 40, font: { size: 10 } }, grid: { display: false } }
@@ -1370,7 +1356,9 @@
                     data: { labels, datasets },
                     options: chartOptions
                 });
-                activeCharts.push(ch);
+                if (!isForPrint) {
+                    activeCharts.push(ch);
+                }
             });
             if (grid.children.length === 0) grid.innerHTML = '<p class="inline-alert info">No se pudieron generar gráficos. Verifica el formato de los datos.</p>';
         }
@@ -1685,7 +1673,6 @@
 
         function getWeekFromDateStr(dateStr) {
             if (!dateStr || typeof dateStr !== 'string') return null;
-            // Soporte para fechas en formato numérico (serial de Excel)
             if (!dateStr.includes('/') && !isNaN(parseInt(dateStr))) {
                 const date = new Date((parseInt(dateStr) - 25569) * 86400 * 1000);
                 dateStr = `${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()}`;
@@ -1721,7 +1708,6 @@
             const emptyState = document.getElementById('ce-weekly-empty');
             const contentState = document.getElementById('ce-weekly-content');
             
-            // 1. Recopilar TODAS las semanas del archivo (sin importar filtros) para no aislar opciones
             if (selSemana.dataset.loaded !== workbookData.SheetNames[0]) {
                 const globalWeeks = new Set();
                 workbookData.SheetNames.forEach(sheetName => {
@@ -1751,7 +1737,6 @@
                 selSemana.dataset.loaded = workbookData.SheetNames[0];
             }
 
-            // 2. Filtrar hojas según los selectores (Variedad, Bloque, Válvula)
             const matchingSheets = workbookData.SheetNames.filter(name => {
                 const m = name.match(/\((\d+)\)/);
                 if (!m) return false;
@@ -1814,8 +1799,6 @@
             emptyState.style.display = 'none';
             contentState.style.display = 'block';
             
-            // 3. Preparar Datos para la Gráfica
-            // Etiquetas de eje X con múltiples líneas: Variedad, Número Válvula, Número Bloque
             const labels = valves.map(v => {
                 const variety = getVarietyForValve(v);
                 const blocks = getBlockForValve(v);
@@ -1829,13 +1812,12 @@
             const ctx = document.getElementById('ce-weekly-canvas').getContext('2d');
             if (weeklyCEChart) weeklyCEChart.destroy();
             
-            // Determinar zona verde según los límites de la primera válvula graficada
             const limits = getLimitsForValve(valves[0]);
             let yMinGreen = 2.4; 
             let yMaxGreen = 3.4;
             if (limits && limits.ce) {
                 yMinGreen = limits.ce[0];
-                yMaxGreen = limits.ce[1] + 0.4; // Ajuste visual de la imagen (hasta 3.4 para Freedom)
+                yMaxGreen = limits.ce[1] + 0.4;
             }
 
             const chartTitle = fVariedad ? `C.E Drenaje Rosa ${fVariedad}` : `C.E Drenaje Rosa (Múltiples Variedades)`;
@@ -1845,7 +1827,6 @@
                 data: {
                     labels: labels,
                     datasets: [
-                        // Drenaje (Café) se dibuja primero (queda atrás)
                         { 
                             label: 'C.E Drenaje', 
                             data: dataDre, 
@@ -1856,7 +1837,6 @@
                             barPercentage: 0.6,
                             categoryPercentage: 0.8
                         },
-                        // Emisor (Rojo) se dibuja después (queda al frente solapado)
                         { 
                             label: 'C.E Emisor', 
                             data: dataEmi, 
@@ -1896,9 +1876,9 @@
                                     type: 'box',
                                     yMin: yMinGreen,
                                     yMax: yMaxGreen,
-                                    backgroundColor: 'rgba(134, 203, 114, 0.4)', // Verde claro semi-transparente
+                                    backgroundColor: 'rgba(134, 203, 114, 0.4)',
                                     borderWidth: 0,
-                                    drawTime: 'beforeDatasetsDraw' // Dibujar detrás de las barras
+                                    drawTime: 'beforeDatasetsDraw'
                                 }
                             }
                         }
@@ -1927,6 +1907,10 @@
             const printContainer = document.getElementById('print-container');
             printContainer.innerHTML = '';
             
+            // 1. Mostrar contenedor y aplicar la clase is-printing para asegurar dimensiones visibles en el DOM
+            document.body.classList.add('is-printing');
+            printContainer.style.display = 'block';
+
             // Obtener hojas que corresponden a válvulas
             const sheetNames = workbookData.SheetNames.filter(name => {
                 const m = name.match(/\((\d+)\)/);
@@ -1983,7 +1967,8 @@
                     contentWrapper.className = 'print-content-wrapper';
                     
                     createTable(contentWrapper, json, indices);
-                    createCharts(contentWrapper, json, sheetName, indices);
+                    // Pasamos true como quinto argumento (isForPrint) para desactivar la animación
+                    createCharts(contentWrapper, json, sheetName, indices, true);
                     
                     page.appendChild(contentWrapper);
                 } else {
@@ -1995,18 +1980,40 @@
                 printContainer.appendChild(page);
             });
 
-            // Permitir que Chart.js dibuje todas las gráficas generadas en el DOM oculto
-            await new Promise(r => setTimeout(r, 1200));
-            
+            // Dar un tiempo breve para el renderizado sincrónico del DOM
+            await new Promise(r => setTimeout(r, 200));
+
+            // 2. Convertir lienzos (<canvas>) a imágenes (<img>) en Base64 para garantizar que aparezcan impresas
+            const canvases = printContainer.querySelectorAll('canvas');
+            canvases.forEach(canvas => {
+                try {
+                    const img = document.createElement('img');
+                    img.src = canvas.toDataURL('image/png');
+                    img.style.maxWidth = '100%';
+                    img.style.maxHeight = '100%';
+                    img.style.display = 'block';
+                    img.style.margin = '0 auto';
+                    if (canvas.parentNode) {
+                        canvas.parentNode.replaceChild(img, canvas);
+                    }
+                } catch (e) {
+                    console.error('Error convirtiendo canvas a imagen:', e);
+                }
+            });
+
+            await new Promise(r => setTimeout(r, 100));
+
             // Disparar ventana de impresión
             window.print();
             
             // Retornar al estado original
             setTimeout(() => {
+                document.body.classList.remove('is-printing');
+                printContainer.style.display = 'none';
                 printContainer.innerHTML = '';
                 printBtn.innerHTML = originalText;
                 printBtn.disabled = false;
-            }, 1000);
+            }, 500);
         }
 
         /* ── RECUPERAR SESIÓN ── */
