@@ -705,7 +705,7 @@
             display: none;
             background: none;
             border: none;
-            color: white;
+            color: #000;
             cursor: pointer;
             padding: 5px;
             margin-right: 15px;
@@ -1443,6 +1443,22 @@
                     };
                     annotations.line1 = { type: 'line', yMin: limits.no3[0], yMax: limits.no3[0], borderColor: 'rgba(21, 128, 61, 0.8)', borderWidth: 2, borderDash: [6, 4] };
                     annotations.line2 = { type: 'line', yMin: limits.no3[1], yMax: limits.no3[1], borderColor: 'rgba(21, 128, 61, 0.8)', borderWidth: 2, borderDash: [6, 4] };
+                }
+                if (cfg.id === 'ph') {
+                    annotations.box1 = {
+                        type: 'box', yMin: 5.5, yMax: 6.5,
+                        backgroundColor: 'rgba(34, 197, 94, 0.2)', borderColor: 'rgba(34, 197, 94, 0.6)', borderWidth: 1, drawTime: 'beforeDatasetsDraw'
+                    };
+                    annotations.line1 = { type: 'line', yMin: 5.5, yMax: 5.5, borderColor: 'rgba(21, 128, 61, 0.8)', borderWidth: 2, borderDash: [6, 4] };
+                    annotations.line2 = { type: 'line', yMin: 6.5, yMax: 6.5, borderColor: 'rgba(21, 128, 61, 0.8)', borderWidth: 2, borderDash: [6, 4] };
+                }
+                if (cfg.id === 'ejecucion') {
+                    annotations.box1 = {
+                        type: 'box', yMin: 90, yMax: 110,
+                        backgroundColor: 'rgba(34, 197, 94, 0.2)', borderColor: 'rgba(34, 197, 94, 0.6)', borderWidth: 1, drawTime: 'beforeDatasetsDraw'
+                    };
+                    annotations.line1 = { type: 'line', yMin: 90, yMax: 90, borderColor: 'rgba(21, 128, 61, 0.8)', borderWidth: 2, borderDash: [6, 4] };
+                    annotations.line2 = { type: 'line', yMin: 110, yMax: 110, borderColor: 'rgba(21, 128, 61, 0.8)', borderWidth: 2, borderDash: [6, 4] };
                 }
 
                 const chartOptions = {
