@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -1210,8 +1210,6 @@
                 });
                 const first = blocksContainer.querySelector('.valve-btn');
                 if (first) first.click();
-                
-                renderWeeklyCEChart();
             } catch (err) {
                 console.error(err);
                 showInlineError(sheetContentContainer, 'No se pudo leer el archivo. Asegúrate de que es un Excel válido.');
@@ -1220,6 +1218,15 @@
         }
 
         /* ── CONTENIDO DE HOJA ── */
+        // Localiza dinámicamente la fila "Valores" de la Tabla Dinámica (contiene las fechas de columna).
+        // Antes estaba fija en la fila 5 (índice 4), pero si la Tabla Dinámica tiene filtros/slicers
+        // adicionales arriba (p. ej. "Válvula", "Mes-Año" con filas extra), esa fila se desplaza y
+        // los datos dejaban de coincidir con las fechas mostradas en las gráficas.
+        function findDateHeaderRowIndex(data) {
+            const idx = data.findIndex(row => row && row[0] && String(row[0]).trim().toLowerCase() === 'valores');
+            return idx !== -1 ? idx : 4; // respaldo: comportamiento anterior si no se encuentra
+        }
+
         function findRowIndices(data) {
             const findRowIdx = (...searchTerms) => data.findIndex(row => {
                 if (!row || !row[0]) return false;
@@ -1267,9 +1274,16 @@
             const table = document.createElement('table');
             table.className = 'data-table';
             
+            // Usamos la fila real de fechas ("Valores") como encabezado de columnas en vez de
+            // la fila 1 (que en las hojas de Tabla Dinámica suele venir vacía).
+            const headerRowIndex = findDateHeaderRowIndex(data);
+            const headerSourceRow = (data[headerRowIndex] && data[headerRowIndex].some(c => c !== null && c !== undefined && String(c).trim() !== ''))
+                ? data[headerRowIndex]
+                : (data[0] || []);
+
             const thead = document.createElement('thead');
             const hr = document.createElement('tr');
-            (data[0] || []).forEach(h => { const th = document.createElement('th'); th.textContent = h ?? ''; hr.appendChild(th); });
+            headerSourceRow.forEach(h => { const th = document.createElement('th'); th.textContent = h ?? ''; hr.appendChild(th); });
             thead.appendChild(hr);
             table.appendChild(thead);
             
@@ -1335,15 +1349,16 @@
                 return n;
             };
             const configs = [];
+            const headerRowIndex = findDateHeaderRowIndex(data);
             
             const ceRows = [];
             if (indices.ceEmisorReal !== -1) ceRows.push(indices.ceEmisorReal);
             if (indices.ceDrenajeReal !== -1) ceRows.push(indices.ceDrenajeReal);
             
             if (ceRows.length > 0) {
-                configs.push({ id: 'ce', title: 'Conductividad Eléctrica', headerRowIndex: 4, dataRowIndices: ceRows, maxRow: Math.max(...ceRows), colors: ['#0ea5e9', '#f97316'], isPercentage: false });
+                configs.push({ id: 'ce', title: 'Conductividad Eléctrica', headerRowIndex, dataRowIndices: ceRows, maxRow: Math.max(...ceRows), colors: ['#0ea5e9', '#f97316'], isPercentage: false });
             } else if (indices.ceDre !== -1) {
-                configs.push({ id: 'ce', title: 'Conductividad Eléctrica', headerRowIndex: 4, dataRowIndices: [indices.ceDre], maxRow: indices.ceDre, colors: ['#f97316'], isPercentage: false });
+                configs.push({ id: 'ce', title: 'Conductividad Eléctrica', headerRowIndex, dataRowIndices: [indices.ceDre], maxRow: indices.ceDre, colors: ['#f97316'], isPercentage: false });
             }
 
             const phRows = [];
@@ -1351,15 +1366,15 @@
             if (indices.phDrenajeReal !== -1) phRows.push(indices.phDrenajeReal);
             
             if (phRows.length > 0) {
-                configs.push({ id: 'ph', title: 'pH', headerRowIndex: 4, dataRowIndices: phRows, maxRow: Math.max(...phRows), colors: ['#8b5cf6', '#ec4899'], isPercentage: false });
+                configs.push({ id: 'ph', title: 'pH', headerRowIndex, dataRowIndices: phRows, maxRow: Math.max(...phRows), colors: ['#8b5cf6', '#ec4899'], isPercentage: false });
             } else if (indices.phDre !== -1) {
-                configs.push({ id: 'ph', title: 'pH', headerRowIndex: 4, dataRowIndices: [indices.phDre], maxRow: indices.phDre, colors: ['#ec4899'], isPercentage: false });
+                configs.push({ id: 'ph', title: 'pH', headerRowIndex, dataRowIndices: [indices.phDre], maxRow: indices.phDre, colors: ['#ec4899'], isPercentage: false });
             }
 
-            if (indices.ejecucion !== -1) configs.push({ id: 'ejecucion', title: '% Ejecución', headerRowIndex: 4, dataRowIndices: [indices.ejecucion], maxRow: indices.ejecucion, colors: ['#8b5cf6'], isPercentage: true });
-            if (indices.no3 !== -1) configs.push({ id: 'no3', title: 'N-NO3', headerRowIndex: 4, dataRowIndices: [indices.no3], maxRow: indices.no3, colors: ['#f97316'], isPercentage: false });
-            if (indices.vol !== -1) configs.push({ id: 'volumen', title: 'Volumen Ejecutado (L/Cama)', headerRowIndex: 4, dataRowIndices: [indices.vol], maxRow: indices.vol, colors: ['#0ea5e9'], isPercentage: false });
-            if (indices.pctDrenaje !== -1) configs.push({ id: 'pct_drenaje', title: '% Drenaje', headerRowIndex: 4, dataRowIndices: [indices.pctDrenaje], maxRow: indices.pctDrenaje, colors: ['#22c55e'], isPercentage: true });
+            if (indices.ejecucion !== -1) configs.push({ id: 'ejecucion', title: '% Ejecución', headerRowIndex, dataRowIndices: [indices.ejecucion], maxRow: indices.ejecucion, colors: ['#8b5cf6'], isPercentage: true });
+            if (indices.no3 !== -1) configs.push({ id: 'no3', title: 'N-NO3', headerRowIndex, dataRowIndices: [indices.no3], maxRow: indices.no3, colors: ['#f97316'], isPercentage: false });
+            if (indices.vol !== -1) configs.push({ id: 'volumen', title: 'Volumen Ejecutado (L/Cama)', headerRowIndex, dataRowIndices: [indices.vol], maxRow: indices.vol, colors: ['#0ea5e9'], isPercentage: false });
+            if (indices.pctDrenaje !== -1) configs.push({ id: 'pct_drenaje', title: '% Drenaje', headerRowIndex, dataRowIndices: [indices.pctDrenaje], maxRow: indices.pctDrenaje, colors: ['#22c55e'], isPercentage: true });
 
             configs.forEach(cfg => {
                 if (data.length <= cfg.maxRow) return;
