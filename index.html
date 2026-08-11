@@ -1292,8 +1292,11 @@
                 const origIdx = ri + 1;
                 if (!rowData || rowData.length === 0) return;
                 const rowLabel = rowData[0] ? String(rowData[0]).trim().toLowerCase() : '';
-                
+                const secondCellLabel = rowData[1] ? String(rowData[1]).trim().toLowerCase() : '';
+
                 if (rowLabel.includes('volumen 2') || rowLabel.includes('volumen 3') || rowLabel === 'evt') return;
+                // Oculta las filas técnicas de la Tabla Dinámica: "Valores" y "Etiquetas de columna"
+                if (rowLabel === 'valores' || secondCellLabel === 'etiquetas de columna') return;
 
                 const isDrenaje = rowLabel.includes('%') && rowLabel.includes('drenaje');
                 const tr = document.createElement('tr');
