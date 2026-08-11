@@ -875,7 +875,6 @@
                 <button class="tab-btn active" data-tab="valves-view" id="valves-tab">• Vista por Válvula •</button>
                 <button class="tab-btn" data-tab="report-view" id="report-tab">Reporte Semanal</button>
                 <button class="tab-btn" data-tab="graphs-view" id="graphs-tab">Gráficas Comparativas</button>
-                <button class="tab-btn" data-tab="ce-weekly-view" id="ce-weekly-tab">Resumen Semanal CE</button>
             </nav>
 
             <div id="loading" style="display:none;" class="loader-wrap">
@@ -894,62 +893,38 @@
             </div>
 
             <div id="graphs-view" class="tab-pane">
-                <div class="empty-state">
-                    <p>Carga un archivo Excel para ver las gráficas comparativas.</p>
-                </div>
-            </div>
-
-            <div id="ce-weekly-view" class="tab-pane">
                 <details class="mobile-filters-details" open>
-                    <summary>Filtros de Gráfica</summary>
+                    <summary>Filtros de Gráficas</summary>
                     <div style="margin-top: 15px; margin-bottom: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
                         <div>
-                            <label for="filter-semana" style="font-size:0.8rem; font-weight:600;">Semana:</label>
-                            <select id="filter-semana" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc; min-width: 120px;">
-                                <option value="">Todas</option>
+                            <label for="filter-graphs-sector" style="font-size:0.8rem; font-weight:600;">Sector:</label>
+                            <select id="filter-graphs-sector" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc; min-width: 120px;">
+                                <option value="">Todos</option>
+                                <option value="8">Sector 8</option>
+                                <option value="9">Sector 9</option>
+                                <option value="10">Sector 10</option>
+                                <option value="11">Sector 11</option>
+                                <option value="12">Sector 12</option>
                             </select>
                         </div>
                         <div>
-                            <label for="filter-variedad" style="font-size:0.8rem; font-weight:600;">Variedad:</label>
-                            <select id="filter-variedad" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc; min-width: 120px;">
-                                <option value="">Todas</option>
-                                <option value="Freedom">Freedom</option>
-                                <option value="Alive">Alive</option>
-                                <option value="Amarela">Amarela</option>
-                                <option value="Vainilla">Vainilla</option>
-                                <option value="Kendal">Kendal</option>
-                                <option value="Ameli">Ameli</option>
-                                <option value="Jacaranda">Jacaranda</option>
-                                <option value="Texas">Texas</option>
-                                <option value="Blessing">Blessing</option>
-                                <option value="Aperol">Aperol</option>
-                                <option value="Suggar Doll">Suggar Doll</option>
-                                <option value="Dakar">Dakar</option>
-                                <option value="Brave in Dark">Brave in Dark</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="filter-bloque" style="font-size:0.8rem; font-weight:600;">Bloque:</label>
-                            <select id="filter-bloque" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc; min-width: 120px;">
+                            <label for="filter-graphs-bloque" style="font-size:0.8rem; font-weight:600;">Bloque:</label>
+                            <select id="filter-graphs-bloque" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc; min-width: 120px;">
                                 <option value="">Todos</option>
                             </select>
                         </div>
                         <div>
-                            <label for="filter-valvula" style="font-size:0.8rem; font-weight:600;">Válvula:</label>
-                            <select id="filter-valvula" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc; min-width: 120px;">
+                            <label for="filter-graphs-valvula" style="font-size:0.8rem; font-weight:600;">Válvula:</label>
+                            <select id="filter-graphs-valvula" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc; min-width: 120px;">
                                 <option value="">Todas</option>
                             </select>
                         </div>
                     </div>
                 </details>
                 
-                <div class="empty-state" id="ce-weekly-empty">
-                    <p>Carga un archivo Excel para ver el resumen semanal.</p>
-                </div>
-
-                <div id="ce-weekly-content" style="display:none;">
-                    <div class="chart-card" style="width: 100%; height: 500px; padding: 20px;">
-                        <canvas id="ce-weekly-canvas"></canvas>
+                <div id="graphs-view-content">
+                    <div class="empty-state">
+                        <p>Carga un archivo Excel para ver las gráficas comparativas.</p>
                     </div>
                 </div>
             </div>
@@ -1782,243 +1757,7 @@
             mkBarChart('Valor Promedio N-NO3', sortedValves.map(v => allValveData[v].nno3), getNNO3Colors(sortedValves.map(v => allValveData[v].nno3), sortedValves), 'Valor Promedio', 300, null, null);
         }
 
-        /* ── LÓGICA DE RESUMEN SEMANAL CE ── */
-        (function initWeeklyFilters() {
-            const selBloque = document.getElementById('filter-bloque');
-            for (let i = 50; i <= 66; i++) {
-                const op = document.createElement('option');
-                op.value = `Bloque ${i}`; op.textContent = `Bloque ${i}`;
-                selBloque.appendChild(op);
-            }
-            
-            const selValvula = document.getElementById('filter-valvula');
-            for (let i = 1; i <= 53; i++) {
-                const op = document.createElement('option');
-                op.value = i; op.textContent = `Válvula ${i}`;
-                selValvula.appendChild(op);
-            }
-        })();
-
-        function getWeekFromDateStr(dateStr) {
-            if (!dateStr || typeof dateStr !== 'string') return null;
-            if (!dateStr.includes('/') && !isNaN(parseInt(dateStr))) {
-                const date = new Date((parseInt(dateStr) - 25569) * 86400 * 1000);
-                dateStr = `${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()}`;
-            }
-            const parts = dateStr.split('/');
-            if (parts.length !== 3) return null;
-            const d = parseInt(parts[0], 10), m = parseInt(parts[1], 10) - 1;
-            let y = parseInt(parts[2], 10);
-            if (y < 100) y += 2000;
-            const date = new Date(y, m, d);
-            if (isNaN(date.getTime())) return null;
-            
-            const target = new Date(date.valueOf());
-            const dayNr = (date.getDay() + 6) % 7;
-            target.setDate(target.getDate() - dayNr + 3);
-            const firstThursday = target.valueOf();
-            target.setMonth(0, 1);
-            if (target.getDay() !== 4) target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
-            return 1 + Math.ceil((firstThursday - target) / 604800000);
-        }
-
-        let weeklyCEChart = null;
-
-        function renderWeeklyCEChart() {
-            if (!workbookData) return;
-            
-            const selSemana = document.getElementById('filter-semana');
-            let fSemana = selSemana.value;
-            const fVariedad = document.getElementById('filter-variedad').value;
-            const fBloque = document.getElementById('filter-bloque').value;
-            const fValvula = document.getElementById('filter-valvula').value;
-            
-            const emptyState = document.getElementById('ce-weekly-empty');
-            const contentState = document.getElementById('ce-weekly-content');
-            
-            if (selSemana.dataset.loaded !== workbookData.SheetNames[0]) {
-                const globalWeeks = new Set();
-                workbookData.SheetNames.forEach(sheetName => {
-                    const ws = workbookData.Sheets[sheetName];
-                    const json = getSheetJson(ws);
-                    if (json.length === 0) return;
-                    const headerRow = json[0];
-                    for (let i = 1; i < headerRow.length; i++) {
-                        const dateStr = String(headerRow[i]).trim();
-                        const week = getWeekFromDateStr(dateStr);
-                        if (week) globalWeeks.add(week);
-                    }
-                });
-                
-                selSemana.innerHTML = '<option value="">Todas</option>';
-                const sortedWeeks = Array.from(globalWeeks).sort((a,b)=>a-b);
-                sortedWeeks.forEach(w => {
-                    const op = document.createElement('option');
-                    op.value = w; op.textContent = `Semana ${w}`;
-                    selSemana.appendChild(op);
-                });
-                
-                if (sortedWeeks.length > 0) {
-                    selSemana.value = sortedWeeks[0]; 
-                    fSemana = String(sortedWeeks[0]);
-                }
-                selSemana.dataset.loaded = workbookData.SheetNames[0];
-            }
-
-            const matchingSheets = workbookData.SheetNames.filter(name => {
-                const m = name.match(/\((\d+)\)/);
-                if (!m) return false;
-                const v = parseInt(m[1]);
-                if (fValvula && v !== parseInt(fValvula)) return false;
-                if (fBloque && !getBlockForValve(v).includes(fBloque)) return false;
-                if (fVariedad && getVarietyForValve(v) !== fVariedad) return false;
-                return true;
-            });
-            
-            if (matchingSheets.length === 0) {
-                emptyState.style.display = 'flex';
-                emptyState.innerHTML = '<p>No se encontraron válvulas para los filtros seleccionados.</p>';
-                contentState.style.display = 'none';
-                return;
-            }
-            
-            const valveStats = {};
-            
-            matchingSheets.forEach(sheetName => {
-                const m = sheetName.match(/\((\d+)\)/);
-                const vNum = parseInt(m[1]);
-                const ws = workbookData.Sheets[sheetName];
-                const json = getSheetJson(ws);
-                if (json.length === 0) return;
-                const indices = findRowIndices(json);
-                if (indices.ceDrenajeReal === -1 || indices.ceEmisorReal === -1) return;
-                
-                const headerRow = json[0];
-                const rowDre = json[indices.ceDrenajeReal];
-                const rowEmi = json[indices.ceEmisorReal];
-                
-                if (!valveStats[vNum]) {
-                    valveStats[vNum] = { dreSum: 0, dreCount: 0, emiSum: 0, emiCount: 0 };
-                }
-                
-                for (let i = 1; i < headerRow.length; i++) {
-                    const dateStr = String(headerRow[i]).trim();
-                    const week = getWeekFromDateStr(dateStr);
-                    
-                    if (fSemana && week !== parseInt(fSemana)) continue;
-                    
-                    const dreVal = parseNumericValue(rowDre[i]);
-                    const emiVal = parseNumericValue(rowEmi[i]);
-                    
-                    if (!isNaN(dreVal) && dreVal > 0) { valveStats[vNum].dreSum += dreVal; valveStats[vNum].dreCount++; }
-                    if (!isNaN(emiVal) && emiVal > 0) { valveStats[vNum].emiSum += emiVal; valveStats[vNum].emiCount++; }
-                }
-            });
-            
-            const valves = Object.keys(valveStats).map(Number).sort((a, b) => a - b);
-            
-            if (valves.length === 0) {
-                emptyState.style.display = 'flex';
-                emptyState.innerHTML = '<p>No hay datos de Conductividad para la semana/filtros seleccionados.</p>';
-                contentState.style.display = 'none';
-                return;
-            }
-            
-            emptyState.style.display = 'none';
-            contentState.style.display = 'block';
-            
-            const labels = valves.map(v => {
-                const variety = getVarietyForValve(v);
-                const blocks = getBlockForValve(v);
-                const blockNum = blocks.length > 0 ? blocks[0].replace('Bloque ', '') : '';
-                return [variety, String(v), blockNum];
-            });
-
-            const dataDre = valves.map(v => valveStats[v].dreCount > 0 ? (valveStats[v].dreSum / valveStats[v].dreCount).toFixed(2) : null);
-            const dataEmi = valves.map(v => valveStats[v].emiCount > 0 ? (valveStats[v].emiSum / valveStats[v].emiCount).toFixed(2) : null);
-            
-            const ctx = document.getElementById('ce-weekly-canvas').getContext('2d');
-            if (weeklyCEChart) weeklyCEChart.destroy();
-            
-            const limits = getLimitsForValve(valves[0]);
-            let yMinGreen = 2.4; 
-            let yMaxGreen = 3.4;
-            if (limits && limits.ce) {
-                yMinGreen = limits.ce[0];
-                yMaxGreen = limits.ce[1] + 0.4;
-            }
-
-            const chartTitle = fVariedad ? `C.E Drenaje Rosa ${fVariedad}` : `C.E Drenaje Rosa (Múltiples Variedades)`;
-
-            weeklyCEChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { 
-                            label: 'C.E Drenaje', 
-                            data: dataDre, 
-                            backgroundColor: '#b45f06', 
-                            borderColor: '#8e4a04', 
-                            borderWidth: 1, 
-                            grouped: false,
-                            barPercentage: 0.6,
-                            categoryPercentage: 0.8
-                        },
-                        { 
-                            label: 'C.E Emisor', 
-                            data: dataEmi, 
-                            backgroundColor: '#ff0000', 
-                            borderColor: '#cc0000', 
-                            borderWidth: 1, 
-                            grouped: false,
-                            barPercentage: 0.6,
-                            categoryPercentage: 0.8
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { 
-                        y: { 
-                            beginAtZero: true, 
-                            max: 4, 
-                            title: { display: true, text: 'Conductividad Electrica (mS/cm)', font: { size: 12 } } 
-                        },
-                        x: { 
-                            ticks: { 
-                                maxRotation: 0, 
-                                minRotation: 0, 
-                                font: { size: 10, family: 'sans-serif' }
-                            },
-                            grid: { display: false }
-                        }
-                    },
-                    plugins: { 
-                        legend: { display: false }, 
-                        title: { display: true, text: chartTitle, font: { size: 16, weight: 'bold' } },
-                        annotation: {
-                            annotations: {
-                                greenBand: {
-                                    type: 'box',
-                                    yMin: yMinGreen,
-                                    yMax: yMaxGreen,
-                                    backgroundColor: 'rgba(134, 203, 114, 0.4)',
-                                    borderWidth: 0,
-                                    drawTime: 'beforeDatasetsDraw'
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        document.getElementById('filter-semana').addEventListener('change', renderWeeklyCEChart);
-        document.getElementById('filter-variedad').addEventListener('change', renderWeeklyCEChart);
-        document.getElementById('filter-bloque').addEventListener('change', renderWeeklyCEChart);
-        document.getElementById('filter-valvula').addEventListener('change', renderWeeklyCEChart);
+        // Código de la gráfica semanal CE fue eliminado
 
     </script>
     <div id="print-container" style="display: none;"></div>
