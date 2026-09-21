@@ -797,6 +797,248 @@
                 color: var(--ink-900);
             }
         }
+
+        /* ══════════════════════════════════════════════════════════════
+           PROGRAMACIÓN FERTIRRIEGO
+           Resumen semaforizado de los últimos 3 días de monitoreo.
+           Todas las clases llevan el prefijo fr- para no chocar con el
+           resto de la hoja de estilos.
+           ══════════════════════════════════════════════════════════════ */
+        :root {
+            /* Semáforo sólido: relleno saturado + texto blanco */
+            --fr-ok:   #14713a;
+            --fr-warn: #c07800;
+            --fr-bad:  #b3140f;
+            --fr-nd:   #cfcfcf;
+            --fr-nd-fg:#7a7a7a;
+        }
+
+        /* ── Cabecera ── */
+        .fr-head {
+            display: flex; flex-wrap: wrap; align-items: flex-end;
+            justify-content: space-between; gap: 12px; margin-bottom: 14px;
+        }
+        .fr-head h2 {
+            font-size: 1.25rem; font-weight: 800; margin: 0;
+            color: var(--ink-900); letter-spacing: -.01em;
+        }
+        .fr-head .fr-sub { font-size: .8rem; color: var(--ink-500); margin-top: 2px; }
+        .fr-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+        .fr-chip {
+            background: var(--white); border: 1px solid var(--ink-200); border-radius: 20px;
+            padding: 4px 12px; font-size: .72rem; font-weight: 700; color: var(--ink-600);
+            text-transform: uppercase; letter-spacing: .04em;
+        }
+        .fr-chip.fr-last { border-color: var(--fr-ok); color: var(--fr-ok); }
+
+        /* ── Indicadores (también son botones de filtro) ── */
+        .fr-kpis { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 16px; }
+        @media (min-width: 760px) { .fr-kpis { grid-template-columns: repeat(4,1fr); } }
+        .fr-kpi {
+            border-radius: var(--radius-md); padding: 14px 16px; border: 1px solid transparent;
+            text-align: left; font: inherit; width: 100%; display: block; cursor: pointer;
+            position: relative; box-shadow: 0 1px 2px rgba(0,0,0,.06);
+            transition: transform .12s ease, box-shadow .12s ease;
+        }
+        .fr-kpi:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,.14); }
+        .fr-kpi:focus-visible { outline: 3px solid var(--ink-800); outline-offset: 2px; }
+        .fr-kpi.fr-sel { box-shadow: 0 0 0 3px var(--ink-800), 0 1px 2px rgba(0,0,0,.06); }
+        .fr-kpi .fr-tag {
+            position: absolute; top: 10px; right: 12px; font-size: .58rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: .06em; opacity: .75;
+        }
+        .fr-kpi .fr-n {
+            font-size: 2.2rem; font-weight: 800; line-height: 1;
+            font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+        }
+        .fr-kpi .fr-l {
+            font-size: .68rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: .07em; margin-top: 6px; opacity: .92;
+        }
+        .fr-kpi .fr-d { font-size: .7rem; margin-top: 2px; opacity: .72; }
+        .fr-kpi.fr-neutral { background: var(--white); border-color: var(--ink-200); color: var(--ink-800); }
+        .fr-kpi.fr-neutral .fr-l, .fr-kpi.fr-neutral .fr-d { color: var(--ink-500); }
+        .fr-kpi.fr-c-ok   { background: var(--fr-ok);   color: #fff; }
+        .fr-kpi.fr-c-warn { background: var(--fr-warn); color: #fff; }
+        .fr-kpi.fr-c-bad  { background: var(--fr-bad);  color: #fff; }
+
+        /* ── Barra de filtros ── */
+        .fr-toolbar {
+            display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;
+            background: var(--white); border: 1px solid var(--ink-200);
+            border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 16px;
+        }
+        .fr-field { display: flex; flex-direction: column; gap: 4px; }
+        .fr-field > label {
+            font-size: .66rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: .06em; color: var(--ink-500);
+        }
+        .fr-field select {
+            font: inherit; font-size: .82rem; font-weight: 600; color: var(--ink-800);
+            background: var(--ink-050); border: 1px solid var(--ink-200);
+            border-radius: var(--radius-sm); padding: 6px 10px; min-width: 132px; cursor: pointer;
+        }
+        .fr-field select:focus-visible { outline: 2px solid var(--fr-ok); outline-offset: 2px; }
+        .fr-seg {
+            display: flex; background: var(--ink-050); border: 1px solid var(--ink-200);
+            border-radius: var(--radius-sm); padding: 3px; gap: 3px; flex-wrap: wrap;
+        }
+        .fr-seg button {
+            font: inherit; font-size: .76rem; font-weight: 800; color: var(--ink-600);
+            background: transparent; border: none; border-radius: 6px; padding: 5px 11px;
+            cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .fr-seg button:hover { color: var(--ink-900); }
+        .fr-seg button:focus-visible { outline: 2px solid var(--fr-ok); outline-offset: 1px; }
+        .fr-seg button[aria-pressed="true"] { background: var(--ink-800); color: var(--white); }
+        .fr-seg button[aria-pressed="true"].fr-ce  { background: var(--fr-warn); color: #fff; }
+        .fr-seg button[aria-pressed="true"].fr-no3 { background: var(--fr-bad);  color: #fff; }
+        .fr-badge {
+            font-size: .64rem; font-weight: 800; font-variant-numeric: tabular-nums;
+            background: var(--ink-200); color: var(--ink-700); border-radius: 9px;
+            padding: 1px 6px; min-width: 20px; text-align: center;
+        }
+        .fr-seg button[aria-pressed="true"] .fr-badge { background: rgba(255,255,255,.28); color: inherit; }
+        .fr-spacer { flex: 1 1 auto; }
+        .fr-count {
+            font-size: .75rem; color: var(--ink-500);
+            font-variant-numeric: tabular-nums; align-self: center;
+        }
+
+        /* ── Tabla ── */
+        .fr-table-wrap {
+            background: var(--white); border: 1px solid var(--ink-200);
+            border-radius: var(--radius-md); overflow-x: auto;
+            box-shadow: 0 1px 2px rgba(0,0,0,.06);
+        }
+        table.fr-grid {
+            border-collapse: separate; border-spacing: 0; width: 100%;
+            min-width: 900px; font-size: .82rem;
+        }
+        table.fr-grid th, table.fr-grid td { padding: 0; text-align: center; white-space: nowrap; }
+        .fr-grid thead .fr-group th {
+            background: var(--ink-100); color: var(--ink-700); font-size: .7rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: .06em;
+            border-bottom: 1px solid var(--ink-200); padding: 8px 10px;
+        }
+        .fr-grid thead .fr-subrow th {
+            background: var(--ink-050); color: var(--ink-500); font-size: .64rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: .05em;
+            border-bottom: 1px solid var(--ink-200); padding: 5px 8px;
+        }
+        .fr-grid .fr-sep { border-left: 2px solid var(--ink-300); }
+        .fr-grid tbody td.fr-sep { border-left: 2px solid var(--ink-200); }
+        .fr-grid th.fr-stick, .fr-grid td.fr-stick {
+            position: sticky; left: 0; z-index: 2; text-align: left; background: var(--white);
+        }
+        .fr-grid thead th.fr-stick { z-index: 4; background: var(--ink-100); }
+        .fr-grid tbody tr.fr-blockrow td {
+            background: var(--ink-100); color: var(--ink-600); font-size: .68rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: .08em; text-align: left;
+            padding: 6px 12px; border-top: 1px solid var(--ink-200); border-bottom: 1px solid var(--ink-200);
+        }
+        .fr-grid tbody tr.fr-row td {
+            border-bottom: 1px solid var(--ink-100); background: var(--white); padding: 4px 5px;
+        }
+        .fr-grid tbody tr.fr-row:hover td { background: var(--ink-050); }
+        .fr-grid tbody tr.fr-row td.fr-stick { padding: 6px 10px 6px 0; }
+        .fr-grid tbody tr.fr-row:hover td.fr-stick { background: var(--ink-050); }
+
+        .fr-vcell { display: flex; align-items: center; gap: 10px; }
+        .fr-stripe { width: 6px; align-self: stretch; min-height: 36px; border-radius: 3px; flex: none; }
+        .fr-stripe.fr-s-ok   { background: var(--fr-ok); }
+        .fr-stripe.fr-s-warn { background: var(--fr-warn); }
+        .fr-stripe.fr-s-bad  { background: var(--fr-bad); }
+        .fr-vtext { display: flex; flex-direction: column; line-height: 1.2; }
+        .fr-vtext .fr-vn { font-weight: 800; color: var(--ink-900); font-size: .9rem; }
+        .fr-vtext .fr-vv { font-size: .7rem; color: var(--ink-500); }
+
+        /* ── Bloques de semáforo ── */
+        .fr-cell {
+            display: block; border-radius: 6px; font-variant-numeric: tabular-nums;
+            font-weight: 800; font-size: .92rem; padding: 8px 4px; letter-spacing: -.01em;
+        }
+        .fr-cell.fr-s-ok   { background: var(--fr-ok);   color: #fff; }
+        .fr-cell.fr-s-warn { background: var(--fr-warn); color: #fff; }
+        .fr-cell.fr-s-bad  { background: var(--fr-bad);  color: #fff; }
+        .fr-cell.fr-s-nd   { background: var(--fr-nd);   color: var(--fr-nd-fg); font-weight: 700; }
+        .fr-cell.fr-big { font-size: 1.1rem; padding: 10px 6px; }
+        .fr-cell .fr-note {
+            display: block; font-size: .6rem; font-weight: 700;
+            opacity: .82; letter-spacing: .04em; margin-top: 1px;
+        }
+        .fr-cell .fr-arrow { font-size: .7rem; font-weight: 800; opacity: .9; margin-left: 3px; }
+
+        /* ── Promedios discretos ── */
+        .fr-avgs { display: flex; gap: 12px; justify-content: center; font-variant-numeric: tabular-nums; }
+        .fr-avg { display: flex; flex-direction: column; line-height: 1.15; }
+        .fr-avg b { font-size: .84rem; font-weight: 700; color: var(--ink-700); }
+        .fr-avg span {
+            font-size: .58rem; text-transform: uppercase; letter-spacing: .05em;
+            color: var(--ink-400); font-weight: 700;
+        }
+        .fr-avg.fr-off b { color: var(--fr-bad); }
+
+        .fr-range { font-size: .68rem; color: var(--ink-500); line-height: 1.35; text-align: left; padding-left: 4px; }
+        .fr-range b { color: var(--ink-700); font-weight: 700; font-variant-numeric: tabular-nums; }
+        .fr-empty { padding: 34px 16px; text-align: center; color: var(--ink-400); font-size: .85rem; }
+        .fr-hint { font-size: .72rem; color: var(--ink-400); margin: 10px 0 0; }
+
+        /* ── Fila de detalle ── */
+        .fr-grid tbody tr.fr-detail td {
+            background: var(--ink-050); padding: 0; border-bottom: 1px solid var(--ink-200);
+        }
+        .fr-detail-inner { padding: 14px 16px; display: grid; gap: 14px; grid-template-columns: 1fr; }
+        @media (min-width: 780px) { .fr-detail-inner { grid-template-columns: 1.3fr 1fr; } }
+        .fr-card {
+            background: var(--white); border: 1px solid var(--ink-200);
+            border-radius: var(--radius-sm); padding: 10px 12px;
+        }
+        .fr-card h4 {
+            margin: 0 0 8px; font-size: .66rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: .07em; color: var(--ink-500);
+        }
+        table.fr-mini { width: 100%; border-collapse: collapse; font-size: .76rem; }
+        table.fr-mini th {
+            text-align: left; font-size: .62rem; text-transform: uppercase; letter-spacing: .06em;
+            color: var(--ink-500); font-weight: 800; padding: 4px 8px; border-bottom: 1px solid var(--ink-200);
+        }
+        table.fr-mini th.fr-r, table.fr-mini td.fr-r { text-align: right; font-variant-numeric: tabular-nums; }
+        table.fr-mini td { padding: 4px 8px; border-bottom: 1px solid var(--ink-100); color: var(--ink-700); }
+        table.fr-mini tr:last-child td { border-bottom: none; }
+        table.fr-mini td.fr-lbl { font-weight: 600; color: var(--ink-600); }
+        .fr-spark { display: block; width: 100%; height: auto; }
+
+        /* ── Leyenda ── */
+        .fr-legend {
+            margin-top: 18px; background: var(--white); border: 1px solid var(--ink-200);
+            border-radius: var(--radius-md); padding: 14px 16px;
+        }
+        .fr-legend h3 {
+            margin: 0 0 10px; font-size: .68rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: .07em; color: var(--ink-500);
+        }
+        .fr-legend-grid { display: grid; gap: 9px 22px; grid-template-columns: 1fr; }
+        @media (min-width: 660px) { .fr-legend-grid { grid-template-columns: 1fr 1fr; } }
+        .fr-legend-item { display: flex; gap: 9px; align-items: baseline; font-size: .76rem; color: var(--ink-600); }
+        .fr-legend-item b { color: var(--ink-800); font-weight: 700; flex: none; min-width: 100px; }
+        .fr-swatches {
+            display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px;
+            padding-top: 12px; border-top: 1px solid var(--ink-100);
+        }
+        .fr-sw { display: inline-flex; align-items: center; gap: 7px; font-size: .73rem; color: var(--ink-600); font-weight: 600; }
+        .fr-sw i { width: 22px; height: 16px; border-radius: 4px; display: inline-block; }
+        .fr-sw.fr-s-ok i   { background: var(--fr-ok); }
+        .fr-sw.fr-s-warn i { background: var(--fr-warn); }
+        .fr-sw.fr-s-bad i  { background: var(--fr-bad); }
+        .fr-sw.fr-s-nd i   { background: var(--fr-nd); }
+
+        @media (max-width: 768px) {
+            .fr-toolbar { gap: 8px; }
+            .fr-field select { min-width: 110px; }
+            .fr-seg { width: 100%; }
+        }
+        @media print { #fertirriego-view { display: none !important; } }
     </style>
 </head>
 
@@ -873,6 +1115,7 @@
         <main class="content-area">
             <nav class="tab-bar" id="tab-bar">
                 <button class="tab-btn active" data-tab="valves-view" id="valves-tab">• Vista por Válvula •</button>
+                <button class="tab-btn" data-tab="fertirriego-view" id="fertirriego-tab">Programación Fertirriego</button>
                 <button class="tab-btn" data-tab="report-view" id="report-tab">Reporte Semanal</button>
                 <button class="tab-btn" data-tab="graphs-view" id="graphs-tab">Gráficas Comparativas</button>
             </nav>
@@ -884,6 +1127,15 @@
 
             <div id="valves-view" class="tab-pane active">
                 <div id="sheet-content-container"></div>
+            </div>
+
+            <!-- ══ PROGRAMACIÓN FERTIRRIEGO ══ -->
+            <div id="fertirriego-view" class="tab-pane">
+                <div id="fertirriego-content">
+                    <div class="empty-state">
+                        <p>Carga un archivo Excel para ver la programación de fertirriego.</p>
+                    </div>
+                </div>
             </div>
 
             <div id="report-view" class="tab-pane">
@@ -963,6 +1215,7 @@
                 document.getElementById(btn.dataset.tab).classList.add('active');
                 if (btn.dataset.tab === 'report-view' && workbookData) generateWeeklyReport();
                 if (btn.dataset.tab === 'graphs-view' && workbookData) generateGraphsReport();
+                if (btn.dataset.tab === 'fertirriego-view' && workbookData) generateFertirriegoReport();
             });
         });
 
@@ -1080,6 +1333,10 @@
             fileUpload.value = '';
             reportContainer.innerHTML = `<div class="empty-state"><p>Carga un archivo Excel para generar el reporte semanal.</p></div>`;
             graphsContainer.innerHTML = `<div class="empty-state"><p>Carga un archivo Excel para ver las gráficas comparativas.</p></div>`;
+            frFilas = [];
+            frAlerta = 'todas';
+            const frCont = document.getElementById('fertirriego-content');
+            if (frCont) frCont.innerHTML = `<div class="empty-state"><p>Carga un archivo Excel para ver la programación de fertirriego.</p></div>`;
             if (deleteFromDB) deleteFileFromDB();
         }
 
@@ -1210,6 +1467,13 @@
                 });
                 const first = blocksContainer.querySelector('.valve-btn');
                 if (first) first.click();
+
+                // Si el usuario está en otra pestaña al cambiar de mes, la regeneramos
+                // para que no se quede mostrando los datos del archivo anterior.
+                const activa = document.querySelector('.tab-pane.active')?.id;
+                if (activa === 'fertirriego-view') generateFertirriegoReport();
+                else if (activa === 'report-view') generateWeeklyReport();
+                else if (activa === 'graphs-view') generateGraphsReport();
             } catch (err) {
                 console.error(err);
                 showInlineError(sheetContentContainer, 'No se pudo leer el archivo. Asegúrate de que es un Excel válido.');
@@ -1776,6 +2040,539 @@
         }
 
         // Código de la gráfica semanal CE fue eliminado
+
+        /* ══════════════════════════════════════════════════════════════════════
+           PROGRAMACIÓN FERTIRRIEGO
+           Resumen semaforizado de las válvulas en los últimos N días con
+           monitoreo registrado. Reutiliza getSheetJson, findRowIndices,
+           findDateHeaderRowIndex, getBlockForValve, getVarietyForValve,
+           getLimitsForValve y parseNumericValue.
+           ══════════════════════════════════════════════════════════════════════ */
+
+        const FR_DIAS = 3;                 // días de monitoreo a resumir
+        const FR_RANGO_PH_DREN  = [5.5, 6.5];
+        const FR_RANGO_PCT_DREN = [45, 60];
+        const FR_RANGO_EJEC     = [90, 110];
+        const FR_TOLERANCIA     = 0.10;    // margen amarillo respecto al borde del rango
+        const FR_SECTOR = { 50:8, 52:8, 54:8, 51:9, 53:9, 55:9, 56:10, 58:10, 60:10, 62:10,
+                            57:11, 59:11, 61:11, 63:11, 64:12, 65:12, 66:12 };
+
+        let frFilas = [];
+        let frAlerta = 'todas';            // todas | ce | no3 | ambas
+
+        /* ── Semáforo ──
+           Dentro del rango → ok. Hasta un 10 % fuera del borde más cercano → warn.
+           Más allá → bad. Sin dato → nd. */
+        function frEvaluar(valor, rango) {
+            if (valor === null || valor === undefined || isNaN(valor) || !rango) return 'nd';
+            const [min, max] = rango;
+            if (valor >= min && valor <= max) return 'ok';
+            const borde = valor < min ? min : max;
+            return Math.abs(valor - borde) / borde <= FR_TOLERANCIA ? 'warn' : 'bad';
+        }
+        const frPeor = (...estados) => ['bad','warn','ok','nd'].find(e => estados.includes(e)) || 'nd';
+        const frFueraDeRango = e => e === 'warn' || e === 'bad';
+        const frPromedio = arr => {
+            const v = arr.filter(n => n !== null && n !== undefined && !isNaN(n));
+            return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+        };
+        const frNum = (n, dec = 1) => (n === null || n === undefined || isNaN(n))
+            ? '—' : n.toLocaleString('es-CO', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+        const frEscapar = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+        /* ── Fechas ──
+           La fila "Valores" trae las fechas ya formateadas por Excel (p. ej. "9/17/26").
+           El orden día/mes depende del equipo donde se generó el archivo, así que lo
+           deducimos del conjunto completo: si algún primer número supera 12, es D/M/A. */
+        function frDetectarFormatoFecha(textos) {
+            let primeroAlto = false, segundoAlto = false;
+            textos.forEach(t => {
+                const m = String(t).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-]\d{2,4}$/);
+                if (!m) return;
+                if (+m[1] > 12) primeroAlto = true;
+                if (+m[2] > 12) segundoAlto = true;
+            });
+            return (primeroAlto && !segundoAlto) ? 'dma' : 'mda';
+        }
+        function frFechaATiempo(texto, formato) {
+            const s = String(texto).trim();
+            const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+            if (m) {
+                let a = +m[1], b = +m[2], anio = +m[3];
+                if (anio < 100) anio += 2000;
+                const mes = formato === 'dma' ? b : a;
+                const dia = formato === 'dma' ? a : b;
+                return Date.UTC(anio, mes - 1, dia);
+            }
+            const t = Date.parse(s);
+            return isNaN(t) ? null : t;
+        }
+        function frFechaCorta(texto, formato) {
+            const t = frFechaATiempo(texto, formato);
+            if (t === null) return String(texto);
+            const d = new Date(t);
+            const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+            return d.getUTCDate() + '-' + meses[d.getUTCMonth()];
+        }
+
+        /* ── Lectura del workbook ── */
+        function frLeerDatos() {
+            const hojas = [];
+            const textosFecha = new Set();
+
+            workbookData.SheetNames.forEach(nombre => {
+                const m = nombre.match(/\((\d+)\)/);
+                if (!m) return;
+                const valvula = parseInt(m[1]);
+                if (!getBlockForValve(valvula).length) return;
+
+                const json = getSheetJson(workbookData.Sheets[nombre]);
+                if (!json.length) return;
+                const indices = findRowIndices(json);
+                const filaFechas = findDateHeaderRowIndex(json);
+                const encabezado = json[filaFechas] || [];
+
+                const columnas = {};
+                for (let c = 1; c < encabezado.length; c++) {
+                    const txt = encabezado[c];
+                    if (txt === null || txt === undefined || String(txt).trim() === '') continue;
+                    const clave = String(txt).trim();
+                    columnas[clave] = c;
+                    textosFecha.add(clave);
+                }
+                hojas.push({ valvula, json, indices, columnas });
+            });
+
+            const formato = frDetectarFormatoFecha([...textosFecha]);
+            const fechas = [...textosFecha]
+                .map(t => ({ t, ts: frFechaATiempo(t, formato) }))
+                .filter(x => x.ts !== null)
+                .sort((a, b) => a.ts - b.ts)
+                .slice(-FR_DIAS)
+                .map(x => x.t);
+
+            const valorEn = (hoja, filaIdx, clave) => {
+                if (filaIdx === -1 || filaIdx === undefined) return null;
+                const c = hoja.columnas[clave];
+                if (c === undefined) return null;
+                const fila = hoja.json[filaIdx];
+                if (!fila) return null;
+                const n = parseNumericValue(fila[c]);
+                return isNaN(n) ? null : n;
+            };
+            // Los porcentajes pueden venir como "80.60%" (→ 80.6) o como fracción (0.806).
+            const comoPorcentaje = v => (v !== null && Math.abs(v) <= 1 && v !== 0) ? v * 100 : v;
+
+            const filas = hojas.map(hoja => {
+                const v = hoja.valvula;
+                const limites = getLimitsForValve(v);
+                const bloqueTxt = getBlockForValve(v)[0] || '';
+                const bloqueNum = parseInt((bloqueTxt.match(/(\d+)/) || [])[1]);
+                const idx = hoja.indices;
+
+                const dias = fechas.map(f => {
+                    const ceDren = valorEn(hoja, idx.ceDrenajeReal, f);
+                    return {
+                        fecha: f,
+                        ceDren,
+                        phDren:  valorEn(hoja, idx.phDrenajeReal, f),
+                        pctDren: comoPorcentaje(valorEn(hoja, idx.pctDrenaje, f)),
+                        ejec:    comoPorcentaje(valorEn(hoja, idx.ejecucion, f)),
+                        no3:     valorEn(hoja, idx.no3, f),
+                        ceEmi:   valorEn(hoja, idx.ceEmisorReal, f),
+                        ceEsp:   valorEn(hoja, idx.ceEsp, f),
+                        phEmi:   valorEn(hoja, idx.phEmisorReal, f),
+                        phEsp:   valorEn(hoja, idx.phEsp, f),
+                        volEj:   valorEn(hoja, idx.vol, f),
+                        sCe: frEvaluar(ceDren, limites.ce)
+                    };
+                });
+
+                // El N-NO3 no se mide a diario: buscamos el último valor registrado del mes.
+                let ultNo3 = null;
+                if (idx.no3 !== -1 && hoja.json[idx.no3]) {
+                    const clavesOrdenadas = Object.keys(hoja.columnas)
+                        .map(t => ({ t, ts: frFechaATiempo(t, formato) }))
+                        .filter(x => x.ts !== null)
+                        .sort((a, b) => a.ts - b.ts);
+                    for (let i = clavesOrdenadas.length - 1; i >= 0; i--) {
+                        const n = valorEn(hoja, idx.no3, clavesOrdenadas[i].t);
+                        if (n !== null && n > 0) { ultNo3 = { valor: n, fecha: clavesOrdenadas[i].t, ts: clavesOrdenadas[i].ts }; break; }
+                    }
+                }
+                const tsUltimoDia = fechas.length ? frFechaATiempo(fechas[fechas.length - 1], formato) : null;
+                const antiguedad = (ultNo3 && tsUltimoDia !== null)
+                    ? Math.round((tsUltimoDia - ultNo3.ts) / 86400000) : null;
+                const sNo3 = ultNo3 ? frEvaluar(ultNo3.valor, limites.no3) : 'nd';
+
+                const ceProm   = frPromedio(dias.map(d => d.ceDren));
+                const sCeProm  = frEvaluar(ceProm, limites.ce);
+                const phProm   = frPromedio(dias.map(d => d.phDren));
+                const drenProm = frPromedio(dias.map(d => d.pctDren));
+                const ejecProm = frPromedio(dias.map(d => d.ejec));
+
+                const serie = dias.map(d => d.ceDren).filter(n => n !== null);
+                const delta = serie.length > 1 ? serie[serie.length - 1] - serie[0] : null;
+
+                const peor = frPeor(sCeProm, sNo3, ...dias.map(d => d.sCe));
+                const estado = peor === 'nd' ? 'ok' : peor;
+
+                return {
+                    valvula: v, bloque: bloqueNum, bloqueTxt, sector: FR_SECTOR[bloqueNum],
+                    variedad: getVarietyForValve(v), limites, dias, ultNo3, sNo3, antiguedad,
+                    ceProm, sCeProm, phProm, drenProm, ejecProm, delta, estado,
+                    sPh:   frEvaluar(phProm,   FR_RANGO_PH_DREN),
+                    sDren: frEvaluar(drenProm, FR_RANGO_PCT_DREN),
+                    sEjec: frEvaluar(ejecProm, FR_RANGO_EJEC),
+                    alertaCE:  frFueraDeRango(sCeProm) || dias.some(d => frFueraDeRango(d.sCe)),
+                    alertaNO3: frFueraDeRango(sNo3)
+                };
+            }).sort((a, b) => a.valvula - b.valvula);
+
+            return { filas, fechas, formato };
+        }
+
+        /* ── Armado de la pestaña ── */
+        function generateFertirriegoReport() {
+            const cont = document.getElementById('fertirriego-content');
+            if (!workbookData) {
+                cont.innerHTML = '<div class="empty-state"><p>Carga un archivo Excel para ver la programación de fertirriego.</p></div>';
+                return;
+            }
+
+            let datos;
+            try {
+                datos = frLeerDatos();
+            } catch (err) {
+                console.error('Programación Fertirriego:', err);
+                cont.innerHTML = '<div class="inline-alert err" style="margin:16px;">No se pudo leer el archivo para esta vista. Revisa que las hojas de tabla dinámica tengan la fila "Valores" con las fechas.</div>';
+                return;
+            }
+
+            frFilas = datos.filas;
+            window.frFechas = datos.fechas;
+            window.frFormato = datos.formato;
+
+            if (!frFilas.length || !datos.fechas.length) {
+                cont.innerHTML = '<div class="inline-alert info" style="margin:16px;">Este archivo no tiene hojas de válvula con fechas reconocibles.</div>';
+                return;
+            }
+
+            const fechasCortas = datos.fechas.map(f => frFechaCorta(f, datos.formato));
+            const chips = datos.fechas.map((f, i) =>
+                `<span class="fr-chip${i === datos.fechas.length - 1 ? ' fr-last' : ''}">${fechasCortas[i]}${i === datos.fechas.length - 1 ? ' · último' : ''}</span>`).join('');
+
+            const sectores = [...new Set(frFilas.map(f => f.sector))].filter(s => s).sort((a, b) => a - b);
+            const bloques  = [...new Set(frFilas.map(f => f.bloque))].filter(b => b).sort((a, b) => a - b);
+            const variedades = [...new Set(frFilas.map(f => f.variedad))].sort();
+
+            cont.innerHTML = `
+                <div class="fr-head">
+                    <div>
+                        <h2>Programación Fertirriego</h2>
+                        <div class="fr-sub">CE drenaje y N-NO3 por válvula — últimos ${datos.fechas.length} días de monitoreo</div>
+                    </div>
+                    <div class="fr-chips">${chips}</div>
+                </div>
+
+                <div class="fr-kpis" id="fr-kpis"></div>
+
+                <div class="fr-toolbar">
+                    <div class="fr-field">
+                        <label for="fr-f-sector">Sector</label>
+                        <select id="fr-f-sector"><option value="">Todos</option>${sectores.map(s => `<option value="${s}">Sector ${s}</option>`).join('')}</select>
+                    </div>
+                    <div class="fr-field">
+                        <label for="fr-f-bloque">Bloque</label>
+                        <select id="fr-f-bloque"><option value="">Todos</option>${bloques.map(b => `<option value="${b}">Bloque ${b}</option>`).join('')}</select>
+                    </div>
+                    <div class="fr-field">
+                        <label for="fr-f-variedad">Variedad</label>
+                        <select id="fr-f-variedad"><option value="">Todas</option>${variedades.map(v => `<option value="${frEscapar(v)}">${frEscapar(v)}</option>`).join('')}</select>
+                    </div>
+                    <div class="fr-field">
+                        <label for="fr-f-orden">Ordenar por</label>
+                        <select id="fr-f-orden">
+                            <option value="bloque">Bloque y válvula</option>
+                            <option value="severidad">Severidad (críticas primero)</option>
+                            <option value="cedren">CE drenaje (mayor a menor)</option>
+                            <option value="no3">N-NO3 (mayor a menor)</option>
+                        </select>
+                    </div>
+                    <div class="fr-field">
+                        <label id="fr-lbl-alertas">Mostrar</label>
+                        <div class="fr-seg" id="fr-seg" role="group" aria-labelledby="fr-lbl-alertas">
+                            <button type="button" data-alerta="todas" aria-pressed="true">Todas</button>
+                            <button type="button" data-alerta="ce" class="fr-ce" aria-pressed="false">Alerta CE drenaje <span class="fr-badge" id="fr-b-ce">0</span></button>
+                            <button type="button" data-alerta="no3" class="fr-no3" aria-pressed="false">Alerta N-NO3 <span class="fr-badge" id="fr-b-no3">0</span></button>
+                            <button type="button" data-alerta="ambas" aria-pressed="false">Ambas <span class="fr-badge" id="fr-b-ambas">0</span></button>
+                        </div>
+                    </div>
+                    <div class="fr-spacer"></div>
+                    <div class="fr-count" id="fr-count"></div>
+                </div>
+
+                <div class="fr-table-wrap">
+                    <table class="fr-grid" id="fr-grid">
+                        <thead>
+                            <tr class="fr-group">
+                                <th class="fr-stick" rowspan="2">Válvula</th>
+                                <th rowspan="2">Rango objetivo</th>
+                                <th colspan="${datos.fechas.length}" class="fr-sep">CE drenaje por día</th>
+                                <th rowspan="2" class="fr-sep">CE drenaje<br>promedio ${datos.fechas.length} días</th>
+                                <th rowspan="2" class="fr-sep">N-NO3<br>último medido</th>
+                                <th rowspan="2" class="fr-sep">Promedios ${datos.fechas.length} días</th>
+                            </tr>
+                            <tr class="fr-subrow">
+                                ${fechasCortas.map((f, i) => `<th class="${i === 0 ? 'fr-sep' : ''}">${f}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody id="fr-body"></tbody>
+                    </table>
+                </div>
+                <p class="fr-hint">Haz clic en cualquier fila para ver el detalle día por día de todas las variables y la micrográfica de CE drenaje.</p>
+
+                <section class="fr-legend">
+                    <h3>Criterios de semaforización</h3>
+                    <div class="fr-legend-grid">
+                        <div class="fr-legend-item"><b>CE drenaje</b><span>Rango de la variedad de cada válvula</span></div>
+                        <div class="fr-legend-item"><b>N-NO3</b><span>Rango de la variedad, sobre el último valor medido</span></div>
+                        <div class="fr-legend-item"><b>Promedios</b><span>pH drenaje ${frNum(FR_RANGO_PH_DREN[0],1)}–${frNum(FR_RANGO_PH_DREN[1],1)} · % drenaje ${FR_RANGO_PCT_DREN[0]}–${FR_RANGO_PCT_DREN[1]} % · % ejecución ${FR_RANGO_EJEC[0]}–${FR_RANGO_EJEC[1]} %</span></div>
+                        <div class="fr-legend-item"><b>Estado</b><span>Franja de color a la izquierda: manda la peor de CE drenaje y N-NO3</span></div>
+                        <div class="fr-legend-item"><b>Alerta CE</b><span>Cualquiera de los ${datos.fechas.length} días o el promedio fuera del rango</span></div>
+                        <div class="fr-legend-item"><b>Alerta NO3</b><span>Último valor medido fuera del rango</span></div>
+                    </div>
+                    <div class="fr-swatches">
+                        <span class="fr-sw fr-s-ok"><i></i> Dentro de rango</span>
+                        <span class="fr-sw fr-s-warn"><i></i> Hasta ${Math.round(FR_TOLERANCIA * 100)} % fuera del borde</span>
+                        <span class="fr-sw fr-s-bad"><i></i> Más de ${Math.round(FR_TOLERANCIA * 100)} % fuera del borde</span>
+                        <span class="fr-sw fr-s-nd"><i></i> Sin dato ese día</span>
+                    </div>
+                </section>
+            `;
+
+            ['fr-f-sector','fr-f-bloque','fr-f-variedad','fr-f-orden'].forEach(id =>
+                document.getElementById(id).addEventListener('change', frRefrescar));
+            document.getElementById('fr-seg').addEventListener('click', e => {
+                const b = e.target.closest('button[data-alerta]');
+                if (b) { frAlerta = b.dataset.alerta; frRefrescar(); }
+            });
+            document.getElementById('fr-kpis').addEventListener('click', e => {
+                const b = e.target.closest('button[data-alerta]');
+                if (b) { frAlerta = b.dataset.alerta; frRefrescar(); }
+            });
+            const cuerpo = document.getElementById('fr-body');
+            cuerpo.addEventListener('click', e => {
+                const tr = e.target.closest('tr.fr-row');
+                if (tr) frAlternarDetalle(tr);
+            });
+            cuerpo.addEventListener('keydown', e => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                const tr = e.target.closest('tr.fr-row');
+                if (!tr) return;
+                e.preventDefault();
+                frAlternarDetalle(tr);
+            });
+
+            frRefrescar();
+        }
+
+        /* ── Filtrado ── */
+        function frAmbito() {
+            const s = document.getElementById('fr-f-sector').value;
+            const b = document.getElementById('fr-f-bloque').value;
+            const v = document.getElementById('fr-f-variedad').value;
+            return frFilas.filter(f =>
+                (!s || String(f.sector) === s) &&
+                (!b || String(f.bloque) === b) &&
+                (!v || f.variedad === v));
+        }
+        function frPasaAlerta(f) {
+            if (frAlerta === 'ce')    return f.alertaCE;
+            if (frAlerta === 'no3')   return f.alertaNO3;
+            if (frAlerta === 'ambas') return f.alertaCE && f.alertaNO3;
+            return true;
+        }
+        function frFiltradas() {
+            const orden = document.getElementById('fr-f-orden').value;
+            const rango = { bad: 0, warn: 1, ok: 2, nd: 3 };
+            let r = frAmbito().filter(frPasaAlerta);
+            if (orden === 'severidad') r = r.slice().sort((a, b) => rango[a.estado] - rango[b.estado] || a.valvula - b.valvula);
+            else if (orden === 'cedren') r = r.slice().sort((a, b) => (b.ceProm ?? -1) - (a.ceProm ?? -1));
+            else if (orden === 'no3')    r = r.slice().sort((a, b) => (b.ultNo3?.valor ?? -1) - (a.ultNo3?.valor ?? -1));
+            return r;
+        }
+
+        /* ── Indicadores ── */
+        function frPintarKPIs(c) {
+            const color = n => n ? (n > 10 ? 'fr-c-bad' : 'fr-c-warn') : 'fr-c-ok';
+            const tarjetas = [
+                { k:'todas', n:c.total, l:'Válvulas monitoreadas', d:'en el ámbito seleccionado', c:'fr-neutral' },
+                { k:'ce',    n:c.ce,    l:'Alerta CE drenaje',     d:'algún día o el promedio fuera', c:color(c.ce) },
+                { k:'no3',   n:c.no3,   l:'Alerta N-NO3',          d:'último valor medido fuera',     c:color(c.no3) },
+                { k:'ambas', n:c.ambas, l:'Alerta en las dos',     d:'CE drenaje y N-NO3 a la vez',   c:c.ambas ? 'fr-c-bad' : 'fr-c-ok' }
+            ];
+            document.getElementById('fr-kpis').innerHTML = tarjetas.map(t => `
+                <button type="button" class="fr-kpi ${t.c}${frAlerta === t.k ? ' fr-sel' : ''}"
+                        data-alerta="${t.k}" aria-pressed="${frAlerta === t.k}">
+                    <span class="fr-tag">${frAlerta === t.k ? 'Filtrando' : 'Filtrar'}</span>
+                    <div class="fr-n">${t.n}</div>
+                    <div class="fr-l">${t.l}</div>
+                    <div class="fr-d">${t.d}</div>
+                </button>`).join('');
+        }
+
+        /* ── Tabla ── */
+        function frPintarTabla(filas) {
+            const cuerpo = document.getElementById('fr-body');
+            const nCols = 5 + window.frFechas.length;
+            if (!filas.length) {
+                cuerpo.innerHTML = `<tr><td colspan="${nCols}"><div class="fr-empty">Ninguna válvula cumple los filtros seleccionados.</div></td></tr>`;
+                return;
+            }
+            const agrupar = document.getElementById('fr-f-orden').value === 'bloque';
+            let html = '', bloqueActual = null;
+
+            filas.forEach(f => {
+                if (agrupar && f.bloque !== bloqueActual) {
+                    bloqueActual = f.bloque;
+                    html += `<tr class="fr-blockrow"><td colspan="${nCols}">Bloque ${f.bloque}${f.sector ? ' · Sector ' + f.sector : ''}</td></tr>`;
+                }
+                const celdasDia = f.dias.map((d, i) =>
+                    `<td class="${i === 0 ? 'fr-sep' : ''}"><span class="fr-cell fr-s-${d.sCe}">${frNum(d.ceDren, 1)}</span></td>`).join('');
+
+                const flecha = f.delta === null ? '' : (f.delta > 0.05 ? '▲' : f.delta < -0.05 ? '▼' : '▬');
+                const rango = f.limites.ce
+                    ? `<div class="fr-range">CE <b>${frNum(f.limites.ce[0],1)}–${frNum(f.limites.ce[1],1)}</b><br>NO3 <b>${f.limites.no3[0]}–${f.limites.no3[1]}</b></div>`
+                    : '<div class="fr-range">Sin rango definido</div>';
+                const no3 = f.ultNo3
+                    ? `<span class="fr-cell fr-big fr-s-${f.sNo3}">${frNum(f.ultNo3.valor, 0)}<span class="fr-note">${f.antiguedad === 0 ? 'hoy' : 'hace ' + f.antiguedad + ' d'}</span></span>`
+                    : `<span class="fr-cell fr-big fr-s-nd">—<span class="fr-note">sin medir</span></span>`;
+                const avg = (valor, estado, dec, etiqueta) =>
+                    `<div class="fr-avg ${frFueraDeRango(estado) ? 'fr-off' : ''}"><b>${frNum(valor, dec)}</b><span>${etiqueta}</span></div>`;
+
+                html += `
+                    <tr class="fr-row" data-valvula="${f.valvula}" tabindex="0" role="button" aria-expanded="false">
+                        <td class="fr-stick">
+                            <div class="fr-vcell">
+                                <span class="fr-stripe fr-s-${f.estado}"></span>
+                                <span class="fr-vtext">
+                                    <span class="fr-vn">Válvula ${f.valvula}</span>
+                                    <span class="fr-vv">${frEscapar(f.variedad)}</span>
+                                </span>
+                            </div>
+                        </td>
+                        <td>${rango}</td>
+                        ${celdasDia}
+                        <td class="fr-sep"><span class="fr-cell fr-big fr-s-${f.sCeProm}">${frNum(f.ceProm, 2)}<span class="fr-arrow">${flecha}</span></span></td>
+                        <td class="fr-sep">${no3}</td>
+                        <td class="fr-sep"><div class="fr-avgs">
+                            ${avg(f.phProm,   f.sPh,   1, 'pH dren')}
+                            ${avg(f.drenProm, f.sDren, 0, '% dren')}
+                            ${avg(f.ejecProm, f.sEjec, 0, '% ejec')}
+                        </div></td>
+                    </tr>
+                    <tr class="fr-detail" hidden data-detalle="${f.valvula}"><td colspan="${nCols}"></td></tr>`;
+            });
+            cuerpo.innerHTML = html;
+        }
+
+        /* ── Detalle expandible ── */
+        function frMicrografica(f) {
+            const valores = f.dias.map(d => d.ceDren);
+            const lim = f.limites.ce;
+            if (!lim) return '';
+            const w = 270, h = 82, pl = 34, pr = 26, pt = 10, pb = 20;
+            const todos = valores.filter(n => n !== null).concat(lim);
+            const min = Math.min(...todos) - 0.25, max = Math.max(...todos) + 0.25;
+            const x = i => pl + i * (w - pl - pr) / Math.max(1, valores.length - 1);
+            const y = v => pt + (max - v) / (max - min) * (h - pt - pb);
+            const puntos = valores.map((v, i) => v === null ? null : [x(i), y(v)]).filter(Boolean);
+            const linea = puntos.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+            const col = { ok: '#14713a', warn: '#c07800', bad: '#b3140f', nd: '#cfcfcf' };
+            return `<svg class="fr-spark" viewBox="0 0 ${w} ${h}" role="img" aria-label="CE drenaje de los últimos días frente al rango objetivo">
+                <rect x="${pl}" y="${y(lim[1]).toFixed(1)}" width="${(w - pl - pr).toFixed(1)}" height="${(y(lim[0]) - y(lim[1])).toFixed(1)}" fill="#14713a" fill-opacity="0.16" stroke="#14713a" stroke-width="1"/>
+                <text x="${pl - 5}" y="${(y(lim[1]) + 4).toFixed(1)}" text-anchor="end" font-size="9" font-weight="700" fill="#666">${frNum(lim[1],1)}</text>
+                <text x="${pl - 5}" y="${(y(lim[0]) + 4).toFixed(1)}" text-anchor="end" font-size="9" font-weight="700" fill="#666">${frNum(lim[0],1)}</text>
+                <path d="${linea}" fill="none" stroke="#2e2e2e" stroke-width="2.5" stroke-linejoin="round"/>
+                ${valores.map((v, i) => v === null ? '' : `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i === valores.length - 1 ? 5 : 4}" fill="${col[f.dias[i].sCe]}" stroke="#fff" stroke-width="1.5"/>`).join('')}
+                ${valores.map((v, i) => {
+                    const anchor = i === 0 ? 'start' : (i === valores.length - 1 ? 'end' : 'middle');
+                    return `<text x="${x(i).toFixed(1)}" y="${h - 5}" text-anchor="${anchor}" font-size="9" fill="#888">${frFechaCorta(f.dias[i].fecha, window.frFormato)}</text>`;
+                }).join('')}
+            </svg>`;
+        }
+        function frPintarDetalle(f) {
+            const fila = (etiqueta, get, dec = 1) =>
+                `<tr><td class="fr-lbl">${etiqueta}</td>${f.dias.map(d => `<td class="fr-r">${frNum(get(d), dec)}</td>`).join('')}</tr>`;
+            return `<div class="fr-detail-inner">
+                <div class="fr-card">
+                    <h4>Detalle día por día — Válvula ${f.valvula} · ${frEscapar(f.variedad)} · ${frEscapar(f.bloqueTxt)}</h4>
+                    <table class="fr-mini">
+                        <thead><tr><th>Variable</th>${f.dias.map(d => `<th class="fr-r">${frFechaCorta(d.fecha, window.frFormato)}</th>`).join('')}</tr></thead>
+                        <tbody>
+                            ${fila('CE emisor',                  d => d.ceEmi,   1)}
+                            ${fila('CE esperada',                d => d.ceEsp,   1)}
+                            ${fila('CE drenaje',                 d => d.ceDren,  1)}
+                            ${fila('pH emisor',                  d => d.phEmi,   1)}
+                            ${fila('pH esperada',                d => d.phEsp,   1)}
+                            ${fila('pH drenaje',                 d => d.phDren,  1)}
+                            ${fila('N-NO3',                      d => d.no3,     0)}
+                            ${fila('Volumen ejecutado (L/cama)', d => d.volEj,   1)}
+                            ${fila('% Ejecución',                d => d.ejec,    1)}
+                            ${fila('% Drenaje',                  d => d.pctDren, 1)}
+                        </tbody>
+                    </table>
+                    <p class="fr-hint">Las celdas vacías de CE y pH esperada son días sin programación cargada en el Excel; el semáforo usa el rango de la variedad.</p>
+                </div>
+                <div class="fr-card">
+                    <h4>CE drenaje vs. rango objetivo</h4>
+                    ${frMicrografica(f)}
+                    <p class="fr-hint">Rango de ${frEscapar(f.variedad)}: ${f.limites.ce ? frNum(f.limites.ce[0],1) + ' – ' + frNum(f.limites.ce[1],1) + ' mS/cm' : 'sin definir'}. Último N-NO3: ${f.ultNo3 ? frNum(f.ultNo3.valor, 0) + ' el ' + frFechaCorta(f.ultNo3.fecha, window.frFormato) : 'sin registro este mes'}.</p>
+                </div>
+            </div>`;
+        }
+        function frAlternarDetalle(tr) {
+            const v = tr.dataset.valvula;
+            const det = document.querySelector(`tr.fr-detail[data-detalle="${v}"]`);
+            if (!det) return;
+            const abierto = !det.hidden;
+            if (!abierto && !det.firstElementChild.innerHTML) {
+                const fila = frFilas.find(f => String(f.valvula) === String(v));
+                if (fila) det.firstElementChild.innerHTML = frPintarDetalle(fila);
+            }
+            det.hidden = abierto;
+            tr.setAttribute('aria-expanded', String(!abierto));
+        }
+
+        /* ── Refresco ── */
+        function frRefrescar() {
+            const base = frAmbito();
+            const conteos = {
+                total: base.length,
+                ce:    base.filter(f => f.alertaCE).length,
+                no3:   base.filter(f => f.alertaNO3).length,
+                ambas: base.filter(f => f.alertaCE && f.alertaNO3).length
+            };
+            document.getElementById('fr-b-ce').textContent    = conteos.ce;
+            document.getElementById('fr-b-no3').textContent   = conteos.no3;
+            document.getElementById('fr-b-ambas').textContent = conteos.ambas;
+            document.getElementById('fr-seg').querySelectorAll('button').forEach(b =>
+                b.setAttribute('aria-pressed', String(b.dataset.alerta === frAlerta)));
+
+            frPintarKPIs(conteos);
+            const filas = frFiltradas();
+            frPintarTabla(filas);
+
+            const etiquetas = {
+                todas: 'sin filtro de alerta',
+                ce:    'con alerta de CE drenaje',
+                no3:   'con alerta de N-NO3',
+                ambas: 'con alerta de CE drenaje y N-NO3'
+            };
+            document.getElementById('fr-count').textContent =
+                `${filas.length} válvula${filas.length === 1 ? '' : 's'} · ${etiquetas[frAlerta]}`;
+        }
 
     </script>
     <div id="print-container" style="display: none;"></div>
