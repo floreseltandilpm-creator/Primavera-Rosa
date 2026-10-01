@@ -1060,6 +1060,19 @@
             border-radius: var(--radius-sm); padding: 5px 10px; cursor: pointer;
         }
         .ce-week-control select:focus-visible { outline: 2px solid var(--ok); outline-offset: 2px; }
+        .ce-week-control select:disabled { opacity: .45; cursor: not-allowed; }
+        .ce-view-toggle {
+            display: flex; gap: 3px; padding: 3px; margin-right: 4px;
+            background: var(--ink-050); border: 1px solid var(--ink-200); border-radius: var(--radius-sm);
+        }
+        .ce-view-toggle button {
+            font: inherit; font-size: .76rem; font-weight: 700; color: var(--ink-600);
+            background: transparent; border: none; border-radius: 6px;
+            padding: 4px 10px; cursor: pointer; white-space: nowrap;
+        }
+        .ce-view-toggle button:hover { color: var(--ink-900); }
+        .ce-view-toggle button:focus-visible { outline: 2px solid var(--ok); outline-offset: 1px; }
+        .ce-view-toggle button[aria-pressed="true"] { background: var(--ink-800); color: var(--white); }
         .ce-week-avg {
             font-size: .72rem; font-weight: 700; color: var(--ink-600);
             font-variant-numeric: tabular-nums;
@@ -1992,6 +2005,7 @@
             });
             const formatoFecha = frDetectarFormatoFecha(textosFecha);
             const ceSemanal = {};              // { válvula: { semana: [cumplimientos] } }
+            const no3Semanal = {};             // ídem para N-NO3
             const semanasDelMes = new Set();
 
             const avgPct = (dRow, tRow, tVal=null, ignZeros=false) => {
@@ -2006,17 +2020,6 @@
                 });
                 return c > 0 ? s / c : NaN;
             };
-            const avgRaw = (dRow, ignZeros=false) => {
-                if (!dRow) return NaN;
-                const last6 = dRow.slice(Math.max(1, dRow.length - 6));
-                let s = 0, c = 0;
-                last6.forEach(v => {
-                    const n = parseNumericValue(v);
-                    if (ignZeros && n === 0) return;
-                    if (!isNaN(n)) { s += n; c++; }
-                });
-                return c > 0 ? s / c : NaN;
-            };
 
             workbookData.SheetNames.forEach(sn => {
                 const ws = workbookData.Sheets[sn];
@@ -2026,34 +2029,44 @@
                 const vn = m ? parseInt(m[1]) : null;
                 if (!vn || !getBlockForValve(vn).length) return;
 
-                /* CE: cumplimiento por banda sobre la fila real de CE Drenaje.
-                   Ojo: indices.ceDre apunta a "CE Emisor", porque findIndex devuelve la
-                   primera coincidencia de ('ce drenaje','ce emisor') y Emisor va primero
-                   en la tabla dinámica. La fila correcta es indices.ceDrenajeReal. */
-                const rangoCE = getLimitsForValve(vn).ce;
-                const filaCE = json[indices.ceDrenajeReal];
+                const limites = getLimitsForValve(vn);
                 const filaFechas = json[findDateHeaderRowIndex(json)] || [];
-                const cumplimientosMes = [];
-                ceSemanal[vn] = {};
-                if (filaCE && rangoCE) {
+
+                /* Recorre las columnas de fecha de una fila, evalúa cada lectura contra su
+                   rango y devuelve el cumplimiento del mes, dejando el desglose por semana
+                   en el acumulador que se le pase. */
+                const recolectar = (fila, rango, acumulador) => {
+                    acumulador[vn] = {};
+                    if (!fila || !rango) return NaN;
+                    const delMes = [];
                     for (let c = 1; c < filaFechas.length; c++) {
                         const texto = filaFechas[c];
                         if (texto === null || texto === undefined || String(texto).trim() === '') continue;
-                        const cmp = cumplimientoBanda(parseNumericValue(filaCE[c]), rangoCE);
+                        const cmp = cumplimientoBanda(parseNumericValue(fila[c]), rango);
                         if (isNaN(cmp)) continue;
-                        cumplimientosMes.push(cmp);
+                        delMes.push(cmp);
                         const t = frFechaATiempo(String(texto).trim(), formatoFecha);
                         if (t === null) continue;
                         const sem = getWeekNumber(new Date(t));
                         semanasDelMes.add(sem);
-                        (ceSemanal[vn][sem] = ceSemanal[vn][sem] || []).push(cmp);
+                        (acumulador[vn][sem] = acumulador[vn][sem] || []).push(cmp);
                     }
-                }
-                const ce = promedio(cumplimientosMes);
+                    return promedio(delMes);
+                };
+
+                /* CE: se evalúa la fila real de CE Drenaje contra el rango de la variedad.
+                   Ojo: indices.ceDre apunta a "CE Emisor", porque findIndex devuelve la
+                   primera coincidencia de ('ce drenaje','ce emisor') y Emisor va primero
+                   en la tabla dinámica. La fila correcta es indices.ceDrenajeReal. */
+                const ce = recolectar(json[indices.ceDrenajeReal], limites.ce, ceSemanal);
+
+                /* N-NO3: mismo criterio contra el rango de nitrato de la variedad.
+                   Se mide una vez por semana en cada válvula, así que cada semana del
+                   selector corresponde a una sola lectura. */
+                const nno3 = recolectar(json[indices.no3], limites.no3, no3Semanal);
 
                 const ph = (indices.phDre !== -1 && indices.phEsp !== -1) ? avgPct(json[indices.phDre], json[indices.phEsp]) : NaN;
                 const ej = (indices.ejecucion !== -1) ? avgPct(json[indices.ejecucion], null, 100, true) : NaN;
-                const nno3 = (indices.no3 !== -1) ? avgRaw(json[indices.no3], true) : NaN;
                 allValveData[vn] = { ce, ph, ejecucion: ej, nno3 };
                 if (!isNaN(ce)) { totalCE.s += ce; totalCE.c++; }
                 if (!isNaN(ph)) { totalPH.s += ph; totalPH.c++; }
@@ -2067,7 +2080,7 @@
                     <div class="stat-mini-card"><div class="val">${fmt(totalEj)}%</div><div class="lbl">Ejecución promedio</div></div>
                     <div class="stat-mini-card"><div class="val">${fmt(totalCE)}%</div><div class="lbl">Cumplimiento CE drenaje</div></div>
                     <div class="stat-mini-card"><div class="val">${fmt(totalPH)}%</div><div class="lbl">pH promedio</div></div>
-                    <div class="stat-mini-card"><div class="val">${fmt(totalNNO3)}</div><div class="lbl">N-NO3 promedio</div></div>
+                    <div class="stat-mini-card"><div class="val">${fmt(totalNNO3)}%</div><div class="lbl">Cumplimiento N-NO3</div></div>
                 </div>
                 <div class="charts-grid" id="bar-charts-grid"></div>
             `;
@@ -2075,12 +2088,21 @@
             const sortedValves = Object.keys(allValveData).sort((a, b) => a - b);
             const labels = sortedValves.map(v => `V${v} - ${getVarietyForValve(v)}`);
             const getColors = data => data.map(v => (!isNaN(v) && v >= 90 && v <= 110) ? 'rgba(16, 185, 129, 0.75)' : 'rgba(239, 68, 68, 0.75)');
-            const getNNO3Colors = (data, valves) => data.map((v, i) => {
-                const limits = getLimitsForValve(valves[i]);
-                if (!limits || !limits.no3) return (!isNaN(v) && v >= 150 && v <= 220) ? 'rgba(16, 185, 129, 0.75)' : 'rgba(239, 68, 68, 0.75)';
-                return (!isNaN(v) && v >= limits.no3[0] && v <= limits.no3[1]) ? 'rgba(16, 185, 129, 0.75)' : 'rgba(239, 68, 68, 0.75)';
-            });
             const grid = document.getElementById('bar-charts-grid');
+
+            /* Al hacer clic en la barra de una válvula, salta a su planilla en
+               la pestaña "Vista por Válvula". */
+            const irAVistaPorValvula = (vn) => {
+                const btn = [...document.querySelectorAll('#blocks-container .valve-btn')].find(b => {
+                    const m = (b.dataset.sheetName || '').match(/\((\d+)\)/);
+                    return m && parseInt(m[1]) === vn;
+                });
+                if (!btn) return;
+                document.getElementById('valves-tab').click();
+                btn.click();
+                btn.scrollIntoView({ block: 'center' });
+                document.querySelector('.content-area')?.scrollTo({ top: 0, behavior: 'smooth' });
+            };
 
             const mkBarChart = (title, chartData, colors, yAxisLabel, yMax, l1, l2) => {
                 const card = document.createElement('div');
@@ -2109,6 +2131,12 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        onClick: (evt, elementos) => {
+                            if (elementos.length) irAVistaPorValvula(parseInt(sortedValves[elementos[0].index]));
+                        },
+                        onHover: (evt, elementos) => {
+                            evt.native.target.style.cursor = elementos.length ? 'pointer' : 'default';
+                        },
                         scales: {
                             y: { beginAtZero: true, max: yMax, title: { display: true, text: yAxisLabel, font: { size: 11 } } },
                             x: { ticks: { maxRotation: 60, minRotation: 40, font: { size: 9 } }, grid: { display: false } }
@@ -2116,6 +2144,7 @@
                         plugins: {
                             legend: { display: false },
                             title: { display: true, text: title, font: { size: 13, weight: '700' }, color: '#1a1a1a', padding: { bottom: 8 } },
+                            tooltip: { callbacks: { afterLabel: () => 'Clic para abrir la planilla' } },
                             annotation: { annotations }
                         }
                     }
@@ -2124,78 +2153,147 @@
 
             mkBarChart('Cumplimiento % Ejecución', sortedValves.map(v => allValveData[v].ejecucion), getColors(sortedValves.map(v => allValveData[v].ejecucion)), 'Cumplimiento (%)', 150, 90, 110);
 
-            /* ── Gráfica de CE con selector de semana ── */
+            /* ── Gráficas de cumplimiento con selector de semana ──
+               Comparten el mismo armado: CE drenaje y N-NO3 se evalúan contra el rango
+               de la variedad y se pueden ver por mes completo o por semana ISO. */
             const semanas = [...semanasDelMes].sort((a, b) => a - b);
-            const promedioSemana = (vn, sem) => {
-                if (sem === 'mes') return allValveData[vn].ce;
-                const vals = (ceSemanal[vn] || {})[sem];
-                if (!vals || !vals.length) return NaN;
-                return vals.reduce((a, b) => a + b, 0) / vals.length;
-            };
 
-            const ceCard = document.createElement('div');
-            ceCard.className = 'chart-card';
-            ceCard.style.gridColumn = '1 / -1';
-            ceCard.innerHTML = `
-                <div class="ce-week-bar">
-                    <div>
-                        <div class="ce-week-title">Cumplimiento Conductividad Eléctrica (drenaje)</div>
-                        <div class="ce-week-help">100 % si la lectura cae dentro del rango de la variedad; fuera del rango baja según la distancia al borde.</div>
-                    </div>
-                    <div class="ce-week-control">
-                        <label for="ce-week-select">Periodo</label>
-                        <select id="ce-week-select">
-                            <option value="mes">Todo el mes</option>
-                            ${semanas.map(s => `<option value="${s}">Semana ${s}</option>`).join('')}
-                        </select>
-                        <span id="ce-week-avg" class="ce-week-avg"></span>
-                    </div>
-                </div>
-                <div class="chart-container" style="height:280px;"><canvas id="ce-canvas"></canvas></div>
-            `;
-            grid.appendChild(ceCard);
+            const COLOR_MES = 'rgba(55, 65, 81, 0.75)';   // barra del total mensual en la vista resumen
 
-            let ceChart = null;
-            const pintarCE = (periodo) => {
-                const datos = sortedValves.map(v => promedioSemana(v, periodo));
-                const validos = datos.filter(n => !isNaN(n));
-                const prom = validos.length ? (validos.reduce((a, b) => a + b, 0) / validos.length) : NaN;
-                const dentro = validos.filter(n => n >= 90 && n <= 110).length;
-                document.getElementById('ce-week-avg').textContent = validos.length
-                    ? `Promedio ${prom.toFixed(1)} % · ${dentro} de ${validos.length} válvulas en rango`
-                    : 'Sin lecturas en este periodo';
-                if (ceChart) {
-                    ceChart.data.datasets[0].data = datos;
-                    ceChart.data.datasets[0].backgroundColor = getColors(datos);
-                    ceChart.data.datasets[0].borderColor = getColors(datos).map(c => c.replace('0.75', '1'));
-                    ceChart.update();
-                    return;
-                }
-                const cv = document.getElementById('ce-canvas');
-                ceChart = new Chart(cv.getContext('2d'), {
-                    type: 'bar',
-                    data: { labels, datasets: [{ label: 'Cumplimiento (%)', data: datos, backgroundColor: getColors(datos), borderColor: getColors(datos).map(c => c.replace('0.75','1')), borderWidth: 1, borderRadius: 4 }] },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        scales: {
-                            y: { beginAtZero: true, max: 110, title: { display: true, text: 'Cumplimiento (%)', font: { size: 11 } } },
-                            x: { ticks: { maxRotation: 60, minRotation: 40, font: { size: 9 } }, grid: { display: false } }
-                        },
-                        plugins: {
-                            legend: { display: false },
-                            title: { display: false },
-                            annotation: { annotations: {
-                                l1: { type:'line', yMin:90, yMax:90, borderColor:'#eab308', borderWidth:2, borderDash:[6,4] }
-                            } }
-                        }
+            const mkComplianceChart = ({ id, titulo, ayuda, clave, acumulador }) => {
+                const valorDe = (vn, periodo) => {
+                    if (periodo === 'mes') return allValveData[vn][clave];
+                    const vals = (acumulador[vn] || {})[periodo];
+                    if (!vals || !vals.length) return NaN;
+                    return vals.reduce((a, b) => a + b, 0) / vals.length;
+                };
+                // Promedio de todas las válvulas para un periodo dado
+                const promedioFinca = periodo => {
+                    const vals = sortedValves.map(v => valorDe(v, periodo)).filter(n => !isNaN(n));
+                    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : NaN;
+                };
+
+                const card = document.createElement('div');
+                card.className = 'chart-card';
+                card.style.gridColumn = '1 / -1';
+                card.innerHTML = `
+                    <div class="ce-week-bar">
+                        <div>
+                            <div class="ce-week-title">${titulo}</div>
+                            <div class="ce-week-help">${ayuda}</div>
+                        </div>
+                        <div class="ce-week-control">
+                            <div class="ce-view-toggle" id="${id}-vista" role="group" aria-label="Vista de la gráfica">
+                                <button type="button" data-vista="valvula" aria-pressed="true">Por válvula</button>
+                                <button type="button" data-vista="resumen" aria-pressed="false">Resumen semanal</button>
+                            </div>
+                            <label for="${id}-select">Periodo</label>
+                            <select id="${id}-select">
+                                <option value="mes">Todo el mes</option>
+                                ${semanas.map(s => `<option value="${s}">Semana ${s}</option>`).join('')}
+                            </select>
+                            <span id="${id}-avg" class="ce-week-avg"></span>
+                        </div>
+                    </div>
+                    <div class="chart-container" style="height:280px;"><canvas id="${id}-canvas"></canvas></div>
+                `;
+                grid.appendChild(card);
+
+                let chart = null, vista = 'valvula', periodoActual = 'mes';
+
+                const pintar = () => {
+                    const selector = document.getElementById(`${id}-select`);
+                    selector.disabled = (vista === 'resumen');
+                    selector.title = vista === 'resumen'
+                        ? 'La vista resumen muestra todas las semanas a la vez' : '';
+
+                    let etiquetas, datos, fondos, resumen;
+                    if (vista === 'resumen') {
+                        etiquetas = [...semanas.map(s => 'Semana ' + s), 'Mes completo'];
+                        datos = [...semanas.map(s => promedioFinca(s)), promedioFinca('mes')];
+                        fondos = getColors(datos);
+                        fondos[fondos.length - 1] = COLOR_MES;        // el total se distingue del resto
+                        const conDato = datos.slice(0, -1).filter(n => !isNaN(n));
+                        const mejor = conDato.length ? Math.max(...conDato) : NaN;
+                        const peor  = conDato.length ? Math.min(...conDato) : NaN;
+                        resumen = conDato.length
+                            ? `Mes ${datos[datos.length-1].toFixed(1)} % · mejor semana ${mejor.toFixed(1)} % · peor ${peor.toFixed(1)} %`
+                            : 'Sin lecturas en el archivo';
+                    } else {
+                        etiquetas = labels;
+                        datos = sortedValves.map(v => valorDe(v, periodoActual));
+                        fondos = getColors(datos);
+                        const validos = datos.filter(n => !isNaN(n));
+                        resumen = validos.length
+                            ? `Promedio ${(validos.reduce((a,b)=>a+b,0)/validos.length).toFixed(1)} % · ${validos.filter(n=>n>=90).length} de ${validos.length} válvulas en rango`
+                            : 'Sin lecturas en este periodo';
                     }
+                    document.getElementById(`${id}-avg`).textContent = resumen;
+
+                    if (chart) {
+                        chart.data.labels = etiquetas;
+                        chart.data.datasets[0].data = datos;
+                        chart.data.datasets[0].backgroundColor = fondos;
+                        chart.data.datasets[0].borderColor = fondos.map(c => c.replace('0.75', '1'));
+                        chart.options.scales.x.ticks.maxRotation = vista === 'resumen' ? 0 : 60;
+                        chart.options.scales.x.ticks.minRotation = vista === 'resumen' ? 0 : 40;
+                        chart.options.scales.x.ticks.font.size = vista === 'resumen' ? 12 : 9;
+                        chart.update();
+                        return;
+                    }
+                    chart = new Chart(document.getElementById(`${id}-canvas`).getContext('2d'), {
+                        type: 'bar',
+                        data: { labels: etiquetas, datasets: [{ label: 'Cumplimiento (%)', data: datos, backgroundColor: fondos, borderColor: fondos.map(c => c.replace('0.75','1')), borderWidth: 1, borderRadius: 4 }] },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            onClick: (evt, elementos) => {
+                                if (vista !== 'valvula' || !elementos.length) return;
+                                irAVistaPorValvula(parseInt(sortedValves[elementos[0].index]));
+                            },
+                            onHover: (evt, elementos) => {
+                                evt.native.target.style.cursor = (vista === 'valvula' && elementos.length) ? 'pointer' : 'default';
+                            },
+                            scales: {
+                                y: { beginAtZero: true, max: 110, title: { display: true, text: 'Cumplimiento (%)', font: { size: 11 } } },
+                                x: { ticks: { maxRotation: 60, minRotation: 40, font: { size: 9 } }, grid: { display: false } }
+                            },
+                            plugins: {
+                                legend: { display: false },
+                                title: { display: false },
+                                tooltip: { callbacks: { afterLabel: () => vista === 'valvula' ? 'Clic para abrir la planilla' : '' } },
+                                annotation: { annotations: {
+                                    l1: { type:'line', yMin:90, yMax:90, borderColor:'#eab308', borderWidth:2, borderDash:[6,4] }
+                                } }
+                            }
+                        }
+                    });
+                };
+
+                document.getElementById(`${id}-select`).addEventListener('change', e => { periodoActual = e.target.value; pintar(); });
+                document.getElementById(`${id}-vista`).addEventListener('click', e => {
+                    const b = e.target.closest('button[data-vista]');
+                    if (!b) return;
+                    vista = b.dataset.vista;
+                    document.getElementById(`${id}-vista`).querySelectorAll('button').forEach(x =>
+                        x.setAttribute('aria-pressed', String(x.dataset.vista === vista)));
+                    pintar();
                 });
+                pintar();
             };
-            document.getElementById('ce-week-select').addEventListener('change', e => pintarCE(e.target.value));
-            pintarCE('mes');
+
+            mkComplianceChart({
+                id: 'ce-week', clave: 'ce', acumulador: ceSemanal,
+                titulo: 'Cumplimiento Conductividad Eléctrica (drenaje)',
+                ayuda: '100 % si la lectura cae dentro del rango de la variedad; fuera del rango baja según la distancia al borde.'
+            });
 
             mkBarChart('Cumplimiento pH', sortedValves.map(v => allValveData[v].ph), getColors(sortedValves.map(v => allValveData[v].ph)), 'Cumplimiento (%)', 150, 90, 110);
-            mkBarChart('Valor Promedio N-NO3', sortedValves.map(v => allValveData[v].nno3), getNNO3Colors(sortedValves.map(v => allValveData[v].nno3), sortedValves), 'Valor Promedio', 300, null, null);
+
+            mkComplianceChart({
+                id: 'no3-week', clave: 'nno3', acumulador: no3Semanal,
+                titulo: 'Cumplimiento N-NO3',
+                ayuda: '100 % si la lectura cae dentro del rango de nitrato de la variedad; fuera del rango baja según la distancia al borde. Se mide una vez por semana en cada válvula.'
+            });
         }
 
         // Código de la gráfica semanal CE fue eliminado
