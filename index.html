@@ -1039,6 +1039,35 @@
             .fr-seg { width: 100%; }
         }
         @media print { #fertirriego-view { display: none !important; } }
+
+        /* ── Selector de semana de la gráfica de CE (Gráficas Comparativas) ── */
+        .ce-week-bar {
+            display: flex; flex-wrap: wrap; gap: 10px;
+            align-items: flex-start; justify-content: space-between;
+            padding-bottom: 10px; margin-bottom: 6px;
+            border-bottom: 1px solid var(--ink-100);
+        }
+        .ce-week-title { font-size: .82rem; font-weight: 800; color: var(--ink-900); }
+        .ce-week-help { font-size: .7rem; color: var(--ink-400); margin-top: 2px; max-width: 54ch; }
+        .ce-week-control { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .ce-week-control label {
+            font-size: .66rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: .06em; color: var(--ink-500);
+        }
+        .ce-week-control select {
+            font: inherit; font-size: .8rem; font-weight: 600; color: var(--ink-800);
+            background: var(--ink-050); border: 1px solid var(--ink-200);
+            border-radius: var(--radius-sm); padding: 5px 10px; cursor: pointer;
+        }
+        .ce-week-control select:focus-visible { outline: 2px solid var(--ok); outline-offset: 2px; }
+        .ce-week-avg {
+            font-size: .72rem; font-weight: 700; color: var(--ink-600);
+            font-variant-numeric: tabular-nums;
+        }
+        @media (max-width: 768px) {
+            .ce-week-bar { flex-direction: column; }
+            .ce-week-help { max-width: none; }
+        }
     </style>
 </head>
 
@@ -1930,6 +1959,41 @@
             const allValveData = {};
             let totalCE = {s:0,c:0}, totalPH = {s:0,c:0}, totalEj = {s:0,c:0}, totalNNO3 = {s:0,c:0};
 
+            /* ── CUMPLIMIENTO DE CE POR BANDA DE RANGO ──
+               El cálculo anterior dividía CE Emisor entre CE Esperada, de modo que una
+               lectura situada dentro del intervalo válido podía puntuar muy bajo si ese
+               día la "esperada" era distinta. Además el 38 % de las celdas de CE Esperada
+               cae fuera del propio rango de la variedad y el 18 % de los días no la tiene,
+               por lo que esos días se descartaban en silencio.
+
+               Ahora se evalúa la CE de drenaje contra el intervalo válido de la variedad:
+               100 % si la lectura cae dentro del intervalo y, si se sale, el cumplimiento
+               decae en proporción a la distancia al borde más cercano. */
+            const cumplimientoBanda = (valor, rango) => {
+                if (valor === null || valor === undefined || isNaN(valor) || valor === 0 || !rango) return NaN;
+                if (valor >= rango[0] && valor <= rango[1]) return 100;
+                const borde = valor < rango[0] ? rango[0] : rango[1];
+                return Math.max(0, (1 - Math.abs(valor - borde) / borde) * 100);
+            };
+            const promedio = arr => {
+                const v = arr.filter(n => n !== null && n !== undefined && !isNaN(n));
+                return v.length ? v.reduce((a, b) => a + b, 0) / v.length : NaN;
+            };
+
+            // Formato de fecha del libro (M/D/A o D/M/A según el equipo que generó el Excel)
+            const textosFecha = [];
+            workbookData.SheetNames.forEach(sn => {
+                if (!/\((\d+)\)/.test(sn)) return;
+                const j = getSheetJson(workbookData.Sheets[sn]);
+                const enc = j[findDateHeaderRowIndex(j)] || [];
+                for (let c = 1; c < enc.length; c++) {
+                    if (enc[c] !== null && enc[c] !== undefined && String(enc[c]).trim() !== '') textosFecha.push(String(enc[c]).trim());
+                }
+            });
+            const formatoFecha = frDetectarFormatoFecha(textosFecha);
+            const ceSemanal = {};              // { válvula: { semana: [cumplimientos] } }
+            const semanasDelMes = new Set();
+
             const avgPct = (dRow, tRow, tVal=null, ignZeros=false) => {
                 if (!dRow) return NaN;
                 const last6 = dRow.slice(Math.max(1, dRow.length - 6));
@@ -1961,7 +2025,32 @@
                 const m = sn.match(/\((\d+)\)/);
                 const vn = m ? parseInt(m[1]) : null;
                 if (!vn || !getBlockForValve(vn).length) return;
-                const ce = (indices.ceDre !== -1 && indices.ceEsp !== -1) ? avgPct(json[indices.ceDre], json[indices.ceEsp]) : NaN;
+
+                /* CE: cumplimiento por banda sobre la fila real de CE Drenaje.
+                   Ojo: indices.ceDre apunta a "CE Emisor", porque findIndex devuelve la
+                   primera coincidencia de ('ce drenaje','ce emisor') y Emisor va primero
+                   en la tabla dinámica. La fila correcta es indices.ceDrenajeReal. */
+                const rangoCE = getLimitsForValve(vn).ce;
+                const filaCE = json[indices.ceDrenajeReal];
+                const filaFechas = json[findDateHeaderRowIndex(json)] || [];
+                const cumplimientosMes = [];
+                ceSemanal[vn] = {};
+                if (filaCE && rangoCE) {
+                    for (let c = 1; c < filaFechas.length; c++) {
+                        const texto = filaFechas[c];
+                        if (texto === null || texto === undefined || String(texto).trim() === '') continue;
+                        const cmp = cumplimientoBanda(parseNumericValue(filaCE[c]), rangoCE);
+                        if (isNaN(cmp)) continue;
+                        cumplimientosMes.push(cmp);
+                        const t = frFechaATiempo(String(texto).trim(), formatoFecha);
+                        if (t === null) continue;
+                        const sem = getWeekNumber(new Date(t));
+                        semanasDelMes.add(sem);
+                        (ceSemanal[vn][sem] = ceSemanal[vn][sem] || []).push(cmp);
+                    }
+                }
+                const ce = promedio(cumplimientosMes);
+
                 const ph = (indices.phDre !== -1 && indices.phEsp !== -1) ? avgPct(json[indices.phDre], json[indices.phEsp]) : NaN;
                 const ej = (indices.ejecucion !== -1) ? avgPct(json[indices.ejecucion], null, 100, true) : NaN;
                 const nno3 = (indices.no3 !== -1) ? avgRaw(json[indices.no3], true) : NaN;
@@ -1976,7 +2065,7 @@
             graphsContainer.innerHTML = `
                 <div class="stat-cards-row">
                     <div class="stat-mini-card"><div class="val">${fmt(totalEj)}%</div><div class="lbl">Ejecución promedio</div></div>
-                    <div class="stat-mini-card"><div class="val">${fmt(totalCE)}%</div><div class="lbl">CE promedio</div></div>
+                    <div class="stat-mini-card"><div class="val">${fmt(totalCE)}%</div><div class="lbl">Cumplimiento CE drenaje</div></div>
                     <div class="stat-mini-card"><div class="val">${fmt(totalPH)}%</div><div class="lbl">pH promedio</div></div>
                     <div class="stat-mini-card"><div class="val">${fmt(totalNNO3)}</div><div class="lbl">N-NO3 promedio</div></div>
                 </div>
@@ -2011,7 +2100,7 @@
                     annotations.l2 = { type:'line', yMin:l2, yMax:l2, borderColor:'#eab308', borderWidth:2, borderDash:[6,4] };
                 }
 
-                new Chart(canvas.getContext('2d'), {
+                return new Chart(canvas.getContext('2d'), {
                     type: 'bar',
                     data: {
                         labels,
@@ -2034,7 +2123,77 @@
             };
 
             mkBarChart('Cumplimiento % Ejecución', sortedValves.map(v => allValveData[v].ejecucion), getColors(sortedValves.map(v => allValveData[v].ejecucion)), 'Cumplimiento (%)', 150, 90, 110);
-            mkBarChart('Cumplimiento Conductividad Eléctrica', sortedValves.map(v => allValveData[v].ce), getColors(sortedValves.map(v => allValveData[v].ce)), 'Cumplimiento (%)', 150, 90, 110);
+
+            /* ── Gráfica de CE con selector de semana ── */
+            const semanas = [...semanasDelMes].sort((a, b) => a - b);
+            const promedioSemana = (vn, sem) => {
+                if (sem === 'mes') return allValveData[vn].ce;
+                const vals = (ceSemanal[vn] || {})[sem];
+                if (!vals || !vals.length) return NaN;
+                return vals.reduce((a, b) => a + b, 0) / vals.length;
+            };
+
+            const ceCard = document.createElement('div');
+            ceCard.className = 'chart-card';
+            ceCard.style.gridColumn = '1 / -1';
+            ceCard.innerHTML = `
+                <div class="ce-week-bar">
+                    <div>
+                        <div class="ce-week-title">Cumplimiento Conductividad Eléctrica (drenaje)</div>
+                        <div class="ce-week-help">100 % si la lectura cae dentro del rango de la variedad; fuera del rango baja según la distancia al borde.</div>
+                    </div>
+                    <div class="ce-week-control">
+                        <label for="ce-week-select">Periodo</label>
+                        <select id="ce-week-select">
+                            <option value="mes">Todo el mes</option>
+                            ${semanas.map(s => `<option value="${s}">Semana ${s}</option>`).join('')}
+                        </select>
+                        <span id="ce-week-avg" class="ce-week-avg"></span>
+                    </div>
+                </div>
+                <div class="chart-container" style="height:280px;"><canvas id="ce-canvas"></canvas></div>
+            `;
+            grid.appendChild(ceCard);
+
+            let ceChart = null;
+            const pintarCE = (periodo) => {
+                const datos = sortedValves.map(v => promedioSemana(v, periodo));
+                const validos = datos.filter(n => !isNaN(n));
+                const prom = validos.length ? (validos.reduce((a, b) => a + b, 0) / validos.length) : NaN;
+                const dentro = validos.filter(n => n >= 90 && n <= 110).length;
+                document.getElementById('ce-week-avg').textContent = validos.length
+                    ? `Promedio ${prom.toFixed(1)} % · ${dentro} de ${validos.length} válvulas en rango`
+                    : 'Sin lecturas en este periodo';
+                if (ceChart) {
+                    ceChart.data.datasets[0].data = datos;
+                    ceChart.data.datasets[0].backgroundColor = getColors(datos);
+                    ceChart.data.datasets[0].borderColor = getColors(datos).map(c => c.replace('0.75', '1'));
+                    ceChart.update();
+                    return;
+                }
+                const cv = document.getElementById('ce-canvas');
+                ceChart = new Chart(cv.getContext('2d'), {
+                    type: 'bar',
+                    data: { labels, datasets: [{ label: 'Cumplimiento (%)', data: datos, backgroundColor: getColors(datos), borderColor: getColors(datos).map(c => c.replace('0.75','1')), borderWidth: 1, borderRadius: 4 }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: {
+                            y: { beginAtZero: true, max: 110, title: { display: true, text: 'Cumplimiento (%)', font: { size: 11 } } },
+                            x: { ticks: { maxRotation: 60, minRotation: 40, font: { size: 9 } }, grid: { display: false } }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            title: { display: false },
+                            annotation: { annotations: {
+                                l1: { type:'line', yMin:90, yMax:90, borderColor:'#eab308', borderWidth:2, borderDash:[6,4] }
+                            } }
+                        }
+                    }
+                });
+            };
+            document.getElementById('ce-week-select').addEventListener('change', e => pintarCE(e.target.value));
+            pintarCE('mes');
+
             mkBarChart('Cumplimiento pH', sortedValves.map(v => allValveData[v].ph), getColors(sortedValves.map(v => allValveData[v].ph)), 'Cumplimiento (%)', 150, 90, 110);
             mkBarChart('Valor Promedio N-NO3', sortedValves.map(v => allValveData[v].nno3), getNNO3Colors(sortedValves.map(v => allValveData[v].nno3), sortedValves), 'Valor Promedio', 300, null, null);
         }
