@@ -1073,6 +1073,54 @@
         .ce-view-toggle button:hover { color: var(--ink-900); }
         .ce-view-toggle button:focus-visible { outline: 2px solid var(--ok); outline-offset: 1px; }
         .ce-view-toggle button[aria-pressed="true"] { background: var(--ink-800); color: var(--white); }
+
+        /* ── Botón y panel de análisis gerencial ── */
+        .an-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            font: inherit; font-size: .76rem; font-weight: 700;
+            color: var(--white); background: var(--ink-800);
+            border: 1px solid var(--ink-800); border-radius: var(--radius-sm);
+            padding: 6px 12px; cursor: pointer; white-space: nowrap;
+        }
+        .an-btn:hover { background: var(--ink-700); border-color: var(--ink-700); }
+        .an-btn:focus-visible { outline: 2px solid var(--ok); outline-offset: 2px; }
+        .an-btn[aria-expanded="true"] { background: var(--ok); border-color: var(--ok); }
+        .an-panel {
+            margin-top: 14px; border: 1px solid var(--ink-200);
+            border-radius: var(--radius-sm); background: var(--ink-050); overflow: hidden;
+        }
+        .an-head {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            padding: 8px 12px; background: var(--ink-100); border-bottom: 1px solid var(--ink-200);
+        }
+        .an-title {
+            font-size: .66rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: .07em; color: var(--ink-600);
+        }
+        .an-actions { display: flex; gap: 6px; }
+        .an-copy, .an-close {
+            font: inherit; font-size: .72rem; font-weight: 700; cursor: pointer;
+            border-radius: 6px; padding: 4px 10px; border: 1px solid var(--ink-300);
+            background: var(--white); color: var(--ink-700);
+        }
+        .an-copy:hover, .an-close:hover { background: var(--ink-050); color: var(--ink-900); }
+        .an-copy:focus-visible, .an-close:focus-visible { outline: 2px solid var(--ok); outline-offset: 1px; }
+        .an-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+        .an-lbl {
+            font-size: .62rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: .06em; color: var(--ink-400); margin-top: 4px;
+        }
+        .an-text, .an-ctx {
+            font-family: inherit; font-size: .86rem; line-height: 1.65; color: var(--ink-800);
+            background: var(--white); border: 1px solid var(--ink-200);
+            border-radius: var(--radius-sm); padding: 12px 14px; width: 100%;
+            resize: vertical; overflow: hidden;
+        }
+        .an-ctx { overflow: auto; min-height: 64px; }
+        .an-text:focus, .an-ctx:focus { outline: 2px solid var(--ok); outline-offset: 1px; border-color: var(--ok); }
+        .an-ctx::placeholder { color: var(--ink-400); }
+        @media (max-width: 768px) { .an-text, .an-ctx { font-size: .82rem; } }
+        @media print { .an-btn, .an-head { display: none !important; } }
         .ce-week-avg {
             font-size: .72rem; font-weight: 700; color: var(--ink-600);
             font-variant-numeric: tabular-nums;
@@ -2009,6 +2057,10 @@
             const ejecSemanal = {};            // ídem para % Ejecución
             const phSemanal = {};              // ídem para pH
             const semanasDelMes = new Set();
+            /* Lecturas sin convertir a porcentaje, con su rango. El cumplimiento por
+               banda no distingue si el desvío fue por arriba o por abajo, y el análisis
+               necesita ese sentido para dar una recomendación con sentido agronómico. */
+            const crudoPorValvula = {};
 
             workbookData.SheetNames.forEach(sn => {
                 const ws = workbookData.Sheets[sn];
@@ -2073,6 +2125,29 @@
                    indices.ceDre apunta a "CE Emisor"; la fila correcta es phDrenajeReal. */
                 const ph = recolectar(porBanda(json[indices.phDrenajeReal], FR_RANGO_PH_DREN), phSemanal);
 
+                /* Lecturas crudas del mes con su semana, para saber el sentido del desvío,
+                   en qué semanas ocurrió y con qué valores. */
+                const crudas = (fila, transformar) => {
+                    const out = [];
+                    if (!fila) return out;
+                    for (let c = 1; c < filaFechas.length; c++) {
+                        const texto = filaFechas[c];
+                        if (texto === null || texto === undefined || String(texto).trim() === '') continue;
+                        const n = transformar(parseNumericValue(fila[c]));
+                        if (isNaN(n) || n === 0) continue;
+                        const t = frFechaATiempo(String(texto).trim(), formatoFecha);
+                        out.push({ valor: n, semana: t === null ? null : getWeekNumber(new Date(t)) });
+                    }
+                    return out;
+                };
+                const tal = n => n;
+                crudoPorValvula[vn] = {
+                    ce:        { valores: crudas(json[indices.ceDrenajeReal], tal), rango: limites.ce },
+                    nno3:      { valores: crudas(json[indices.no3], tal),           rango: limites.no3 },
+                    ph:        { valores: crudas(json[indices.phDrenajeReal], tal), rango: FR_RANGO_PH_DREN },
+                    ejecucion: { valores: crudas(filaEjec, n => Math.abs(n) <= 1 ? n * 100 : n), rango: FR_RANGO_EJEC }
+                };
+
                 allValveData[vn] = { ce, ph, ejecucion: ej, nno3 };
                 if (!isNaN(ce)) { totalCE.s += ce; totalCE.c++; }
                 if (!isNaN(ph)) { totalPH.s += ph; totalPH.c++; }
@@ -2117,6 +2192,251 @@
 
             const COLOR_MES = 'rgba(55, 65, 81, 0.75)';   // barra del total mensual en la vista resumen
 
+            /* ══════════════════════════════════════════════════════════════════
+               REDACCIÓN DEL ANÁLISIS GERENCIAL
+               Sigue el arco con el que Juan Esteban redacta sus informes:
+                 1. qué muestra la gráfica,
+                 2. el número general, redondeado y en términos de datos del mes,
+                 3. los incumplimientos agrupados por sector y bloque, con la semana
+                    en que ocurrieron y si alcanzaron a regularse,
+                 4. las válvulas puntuales con su valor y cuántos días estuvieron así,
+                    distinguiendo el desvío franco del que apenas roza el límite,
+                 5. los valores mal digitados, si los hay.
+               Se queda en el diagnóstico: no propone acciones. El contexto de manejo
+               (fórmula, drench, refuerzos) lo escribe él aparte, porque no sale del dato.
+               ══════════════════════════════════════════════════════════════════ */
+
+            const anioCargado = (() => {
+                for (const t of textosFecha) {
+                    const ts = frFechaATiempo(t, formatoFecha);
+                    if (ts !== null) return new Date(ts).getUTCFullYear();
+                }
+                return null;
+            })();
+            const mesCargado = () => {
+                const sel = document.getElementById('month-select');
+                const txt = sel && sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].text.toLowerCase() : '';
+                return txt || (document.getElementById('file-name')?.textContent || '')
+                    .replace(/\.(xlsx|xlsm|xls)$/i, '').toLowerCase();
+            };
+            const n1 = v => (v === null || v === undefined || isNaN(v)) ? '—' : v.toFixed(1).replace('.', ',');
+            const n2 = v => (v === null || v === undefined || isNaN(v)) ? '—' : String(Math.round(v * 10) / 10).replace('.', ',');
+            const listar = (arr, u = 'y') => arr.length <= 1 ? (arr[0] || '')
+                : arr.slice(0, -1).join(', ') + ' ' + u + ' ' + arr[arr.length - 1];
+            const plural = (n, s, p) => n === 1 ? s : p;
+
+            /* Cómo se nombra cada indicador en prosa */
+            const FICHA = {
+                ejecucion: {
+                    apertura: 'En la gráfica se evidencia el cumplimiento del volumen de riego ejecutado frente al programado para cada válvula a lo largo del mes.',
+                    art: 'las', lectura: 'ejecuciones',
+                    alto: 'estuvieron por encima de lo programado', bajo: 'estuvieron por debajo de lo programado',
+                    altoCorto: 'por encima de lo programado', bajoCorto: 'por debajo de lo programado',
+                    altoAdj: 'por encima de lo programado', bajoAdj: 'por debajo de lo programado',
+                    unidad: '%', decimales: 0, esRazon: true, sinDigitacion: true
+                },
+                ce: {
+                    apertura: 'En la gráfica se evidencia el cumplimiento de la conductividad eléctrica en los diferentes rangos establecidos para cada variedad a lo largo del mes.',
+                    art: 'las', lectura: 'conductividades',
+                    alto: 'estuvieron altas', bajo: 'estuvieron bajas',
+                    altoCorto: 'con conductividades altas', bajoCorto: 'con conductividades bajas',
+                    altoAdj: 'altas', bajoAdj: 'bajas',
+                    unidad: '', decimales: 1
+                },
+                ph: {
+                    apertura: 'En la gráfica se evidencia el comportamiento del pH de drenaje frente al rango establecido de 5,5 a 6,5 para todas las variedades a lo largo del mes.',
+                    art: 'las', lectura: 'lecturas de pH',
+                    alto: 'estuvieron altas', bajo: 'estuvieron bajas',
+                    altoCorto: 'con el pH alto', bajoCorto: 'con el pH bajo',
+                    altoAdj: 'altas', bajoAdj: 'bajas',
+                    unidad: '', decimales: 1
+                },
+                nno3: {
+                    apertura: 'Esta gráfica establece el panorama de promedio de nitratos para cada válvula en el mes.',
+                    art: 'los', lectura: 'nitratos',
+                    alto: 'estuvieron altos', bajo: 'estuvieron bajos',
+                    altoCorto: 'con nitratos altos', bajoCorto: 'con nitratos bajos',
+                    altoAdj: 'altos', bajoAdj: 'bajos',
+                    unidad: '', decimales: 0
+                }
+            };
+
+            /* Detalle del desvío de una válvula: sentido dominante, semanas afectadas,
+               valor más repetido fuera de rango y cuántos días estuvo así. */
+            const detalleDesvio = (vn, clave) => {
+                const d = crudoPorValvula[vn] && crudoPorValvula[vn][clave];
+                if (!d || !d.valores.length || !d.rango) return null;
+                const [min, max] = d.rango;
+                /* Los valores absurdos se tratan aparte como error de digitación; si se
+                   dejaran aquí, el "extremo" del desvío sería justamente el dato malo. */
+                const plausible = x => FICHA[clave].sinDigitacion || (x.valor <= max * 2 && x.valor >= min / 2);
+                const fueraArriba = d.valores.filter(x => x.valor > max && plausible(x));
+                const fueraAbajo  = d.valores.filter(x => x.valor < min && plausible(x));
+                if (!fueraArriba.length && !fueraAbajo.length) return null;
+                const sentido = fueraArriba.length >= fueraAbajo.length ? 'alto' : 'bajo';
+                const fuera = sentido === 'alto' ? fueraArriba : fueraAbajo;
+                const borde = sentido === 'alto' ? max : min;
+
+                // valor más repetido entre las lecturas fuera de rango
+                const conteo = {};
+                fuera.forEach(x => { const k = x.valor.toFixed(2); conteo[k] = (conteo[k] || 0) + 1; });
+                const frecuente = Object.entries(conteo).sort((a, b) => b[1] - a[1])[0];
+                // ¿qué tan lejos del borde llegó?
+                const extremo = sentido === 'alto' ? Math.max(...fuera.map(x => x.valor))
+                                                   : Math.min(...fuera.map(x => x.valor));
+                const distancia = Math.abs(extremo - borde) / borde;
+                const semanas = [...new Set(fuera.map(x => x.semana).filter(s => s !== null))].sort((a, b) => a - b);
+                return {
+                    sentido, dias: fuera.length, semanas, borde, extremo, distancia,
+                    valorTipico: parseFloat(frecuente[0]), diasTipico: frecuente[1],
+                    rozaElLimite: distancia <= 0.08
+                };
+            };
+
+            /* Error de digitación: lectura absurdamente lejos del rango (más del doble
+               del límite superior o menos de la mitad del inferior). */
+            const sospechaDigitacion = (vn, clave) => {
+                /* En ejecución un valor bajo es un día de riego parcial, no un error de
+                   digitación, así que el detector solo aplica a CE, pH y nitratos. */
+                if (FICHA[clave].sinDigitacion) return null;
+                const d = crudoPorValvula[vn] && crudoPorValvula[vn][clave];
+                if (!d || !d.rango) return null;
+                const malas = d.valores.filter(x => x.valor > d.rango[1] * 2 || x.valor < d.rango[0] / 2);
+                if (!malas.length) return null;
+                const resto = d.valores.filter(x => !malas.includes(x));
+                return {
+                    valores: malas.map(x => x.valor),
+                    promedioSinEllas: resto.length ? resto.reduce((a, b) => a + b.valor, 0) / resto.length : NaN
+                };
+            };
+
+            const generarAnalisis = ({ clave, periodo, enRango }) => {
+                const ficha = FICHA[clave];
+                const mes = mesCargado();
+                const esSemana = periodo !== 'mes';
+                const acum = { ejecucion: ejecSemanal, ce: ceSemanal, ph: phSemanal, nno3: no3Semanal }[clave];
+                const valorDe = vn => {
+                    if (!esSemana) return allValveData[vn][clave];
+                    const v = (acum[vn] || {})[periodo];
+                    return v && v.length ? v.reduce((a, b) => a + b, 0) / v.length : NaN;
+                };
+                const nv = x => n2(x).replace(/,0$/, ficha.decimales ? ',0' : '');
+                const valorTxt = x => (ficha.decimales === 0 ? String(Math.round(x)) : n1(x)) + ficha.unidad;
+
+                const filas = sortedValves.map(v => ({ v: parseInt(v), val: valorDe(v) })).filter(x => !isNaN(x.val));
+                if (!filas.length) {
+                    return `${ficha.apertura} No se registraron lecturas para ${esSemana ? 'la semana ' + periodo : 'este mes'}, por lo que no es posible evaluar el periodo.`;
+                }
+
+                const prom = filas.reduce((a, b) => a + b.val, 0) / filas.length;
+                const fuera = filas.filter(x => !enRango(x.val)).sort((a, b) => a.val - b.val);
+                const p = [];
+
+                /* 1 y 2 — qué muestra y el número general */
+                const alcance = esSemana ? `de la semana ${periodo}` : 'del mes';
+                const apertura = esSemana
+                    ? ficha.apertura.replace('a lo largo del mes', `en la semana ${periodo}`).replace('en el mes', `en la semana ${periodo}`)
+                    : ficha.apertura;
+                /* En ejecución el indicador es una razón contra lo programado, no un
+                   porcentaje de datos conformes, así que la frase es distinta. */
+                const cifra = ficha.esRazon
+                    ? ` Sobre números nos indica que el volumen entregado ${alcance} promedió un ${Math.round(prom)}% del programado.`
+                    : ` Sobre números nos indica que aproximadamente el ${Math.round(prom)}% de los datos ${alcance} cumplieron con los parámetros requeridos.`;
+                p.push(apertura + cifra);
+
+                if (!fuera.length) {
+                    p.push(`Ninguna válvula presentó incumplimientos en el periodo, de manera que el comportamiento se mantuvo dentro de lo establecido para todas las variedades.`);
+                    return p.join('\n\n');
+                }
+
+                /* Detalle de cada válvula fuera de rango */
+                const info = fuera.map(x => ({ ...x, det: detalleDesvio(x.v, clave),
+                                               sector: FR_SECTOR[parseInt((getBlockForValve(x.v)[0] || '').replace(/\D/g, ''))],
+                                               bloque: getBlockForValve(x.v)[0],
+                                               variedad: getVarietyForValve(x.v) }));
+
+                /* 3 — agrupación por sector, con semanas y regulación */
+                const porSector = {};
+                info.forEach(x => { if (x.sector) (porSector[x.sector] = porSector[x.sector] || []).push(x); });
+                const sectores = Object.entries(porSector).filter(([, arr]) => arr.length >= 2)
+                                                          .sort((a, b) => b[1].length - a[1].length);
+                const yaContadas = new Set();
+
+                if (!esSemana && sectores.length) {
+                    const [sec, arr] = sectores[0];
+                    const bloques = [...new Set(arr.map(x => x.bloque))].sort();
+                    const semsAfectadas = [...new Set(arr.flatMap(x => x.det ? x.det.semanas : []))].sort((a, b) => a - b);
+                    const sentidos = arr.map(x => x.det && x.det.sentido).filter(Boolean);
+                    const dominante = sentidos.filter(s => s === 'alto').length >= sentidos.filter(s => s === 'bajo').length ? 'alto' : 'bajo';
+                    const ultima = semanas[semanas.length - 1];
+                    const seRegulo = semsAfectadas.length && !semsAfectadas.includes(ultima);
+
+                    const todasLasSemanas = semsAfectadas.length >= semanas.length;
+                    let f = `Para los casos del sector ${sec}, donde se vieron ${ficha.lectura} que no cumplieron, fue debido a que ${bloques.length === 1 ? 'el ' + bloques[0] : 'los bloques ' + listar(bloques.map(b => b.replace('Bloque ', '')), 'y')}`;
+                    if (todasLasSemanas) {
+                        f += ` mantuvieron ${ficha.art} ${ficha.lectura} ${ficha[dominante + 'Adj']} a lo largo de todo el mes`;
+                    } else if (semsAfectadas.length === 1) {
+                        const esUltima = semsAfectadas[0] === ultima;
+                        f += ` en la ${esUltima ? 'última semana del mes' : 'semana'} (semana ${semsAfectadas[0]}) ${ficha.art} ${ficha.lectura} ${ficha[dominante]}`;
+                    } else {
+                        f += ` en las semanas ${listar(semsAfectadas.map(String))} ${ficha.art} ${ficha.lectura} ${ficha[dominante]}`;
+                    }
+                    f += todasLasSemanas ? '.'
+                        : seRegulo ? ` y se lograron regular hacia la semana ${ultima}.`
+                        : `, situación que se mantuvo hasta el cierre del mes.`;
+                    p.push(f);
+                    arr.forEach(x => yaContadas.add(x.v));
+                }
+
+                /* 4 — válvulas puntuales, separando el desvío franco del que roza el límite */
+                const sueltas = info.filter(x => !yaContadas.has(x.v));
+                const rozan = sueltas.filter(x => x.det && x.det.rozaElLimite);
+                const francas = sueltas.filter(x => !x.det || !x.det.rozaElLimite);
+
+                if (rozan.length) {
+                    // agrupamos por el valor típico para poder decir "estuvieron 3 días en valores de 2,3"
+                    const grupos = {};
+                    rozan.forEach(x => { const k = x.det.valorTipico.toFixed(2); (grupos[k] = grupos[k] || []).push(x); });
+                    const mayor = Object.entries(grupos).sort((a, b) => b[1].length - a[1].length)[0];
+                    const [valor, arr] = mayor;
+                    const dias = Math.round(arr.reduce((a, b) => a + b.det.diasTipico, 0) / arr.length);
+                    const nums = arr.map(x => x.v).sort((a, b) => a - b);
+                    const otras = rozan.filter(x => !arr.includes(x));
+                    let f = `En otros casos como puede ser la válvula ${listar(nums.map(String))}, ${plural(nums.length, 'fue una válvula que estuvo', 'fueron válvulas que estuvieron')} ${dias} ${plural(dias, 'día', 'días')} en valores de ${valorTxt(parseFloat(valor))}, haciendo que ${plural(nums.length, 'entrara', 'entraran')} en un incumplimiento cercano al límite.`;
+                    if (otras.length) {
+                        f += ` Algo similar ocurre con ${plural(otras.length, 'la válvula', 'las válvulas')} ${listar(otras.map(x => String(x.v)))}, con desvíos igualmente marginales.`;
+                    }
+                    p.push(f);
+                }
+
+                if (francas.length) {
+                    const nombrar = x => {
+                        const d = x.det;
+                        if (!d) return `la válvula ${x.v} (${x.variedad})`;
+                        return `la válvula ${x.v} (${x.variedad}, ${x.bloque}), que estuvo ${d.dias} ${plural(d.dias, 'día', 'días')} ${ficha[d.sentido + 'Corto']} con un extremo de ${valorTxt(d.extremo)}`;
+                    };
+                    const muestra = francas.slice(0, 3);
+                    const resto = francas.length - muestra.length;
+                    const hubo = p.length > 1;
+                    const arranque = francas.length === 1
+                        ? (hubo ? 'Se presenta además un desvío más marcado en' : 'El incumplimiento se concentra en')
+                        : (hubo ? 'Se presentan además desvíos más marcados en' : 'Los incumplimientos se concentran en');
+                    p.push(`${arranque} ${listar(muestra.map(nombrar))}`
+                         + (resto > 0 ? `, y en ${plural(resto, 'otra válvula', `otras ${resto} válvulas`)} con un comportamiento similar.` : '.'));
+                }
+
+                /* 5 — valores mal digitados */
+                const malos = info.map(x => ({ x, s: sospechaDigitacion(x.v, clave) })).filter(o => o.s);
+                if (malos.length) {
+                    const o = malos[0];
+                    p.push(`En el caso de la ${o.x.variedad} (válvula ${o.x.v}) se encuentra un valor mal digitado de ${valorTxt(o.s.valores[0])}, sin embargo esta válvula posee un promedio de ${valorTxt(o.s.promedioSinEllas)} al descartarlo`
+                         + (enRango(o.x.val) ? `, ubicándose dentro de lo permitido.` : `, lo que cambia la lectura de su comportamiento real.`)
+                         + (malos.length > 1 ? ` La misma situación se repite en ${malos.length - 1} ${plural(malos.length - 1, 'válvula', 'válvulas')} más.` : ''));
+                }
+
+                return p.join('\n\n');
+            };
+
             const mkComplianceChart = ({ id, titulo, ayuda, clave, acumulador, yMax = 110, lineas = [90] }) => {
                 // "En rango" es estar sobre la línea única, o entre las dos cuando hay par.
                 const enRango = n => lineas.length > 1 ? (n >= lineas[0] && n <= lineas[1]) : n >= lineas[0];
@@ -2152,9 +2472,32 @@
                                 ${semanas.map(s => `<option value="${s}">Semana ${s}</option>`).join('')}
                             </select>
                             <span id="${id}-avg" class="ce-week-avg"></span>
+                            <button type="button" class="an-btn" id="${id}-an" aria-expanded="false">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                    <path d="M5 4a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1H5zm-.5 2.5A.5.5 0 0 1 5 6h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5zM5 8a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1H5zm0 2a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1H5z"/>
+                                    <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2zm10-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1z"/>
+                                </svg>
+                                Análisis
+                            </button>
                         </div>
                     </div>
                     <div class="chart-container" style="height:280px;"><canvas id="${id}-canvas"></canvas></div>
+                    <div class="an-panel" id="${id}-panel" hidden>
+                        <div class="an-head">
+                            <span class="an-title">Análisis para reporte gerencial</span>
+                            <div class="an-actions">
+                                <button type="button" class="an-copy" id="${id}-copy">Copiar</button>
+                                <button type="button" class="an-close" id="${id}-close" aria-label="Cerrar análisis">Cerrar</button>
+                            </div>
+                        </div>
+                        <div class="an-body">
+                            <label class="an-lbl" for="${id}-texto">Diagnóstico — generado del dato, editable</label>
+                            <textarea class="an-text" id="${id}-texto" spellcheck="true"></textarea>
+                            <label class="an-lbl" for="${id}-ctx">Contexto de manejo — esto no sale del dato</label>
+                            <textarea class="an-ctx" id="${id}-ctx" spellcheck="true" rows="3"
+                                placeholder="Fórmula del periodo, drench y refuerzos aplicados, y con qué intención agronómica. Lo que escribas aquí se copia al final del análisis."></textarea>
+                        </div>
+                    </div>
                 `;
                 grid.appendChild(card);
 
@@ -2237,7 +2580,51 @@
                     });
                 };
 
-                document.getElementById(`${id}-select`).addEventListener('change', e => { periodoActual = e.target.value; pintar(); });
+                /* ── Botón de análisis ── */
+                const panel = document.getElementById(`${id}-panel`);
+                const cajaTexto = document.getElementById(`${id}-texto`);
+                const btnAn = document.getElementById(`${id}-an`);
+                const cajaCtx = document.getElementById(`${id}-ctx`);
+                const ajustarAlto = ta => { ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight + 4) + 'px'; };
+                const escribirAnalisis = () => {
+                    cajaTexto.value = generarAnalisis({
+                        clave, enRango,
+                        periodo: vista === 'resumen' ? 'mes' : periodoActual
+                    });
+                    ajustarAlto(cajaTexto);
+                };
+                cajaTexto.addEventListener('input', () => ajustarAlto(cajaTexto));
+                btnAn.addEventListener('click', () => {
+                    const abierto = !panel.hidden;
+                    if (abierto) { panel.hidden = true; btnAn.setAttribute('aria-expanded', 'false'); return; }
+                    escribirAnalisis();
+                    panel.hidden = false;
+                    ajustarAlto(cajaTexto);   // el alto solo se puede medir con el panel visible
+                    btnAn.setAttribute('aria-expanded', 'true');
+                    panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                });
+                document.getElementById(`${id}-close`).addEventListener('click', () => {
+                    panel.hidden = true; btnAn.setAttribute('aria-expanded', 'false');
+                });
+                document.getElementById(`${id}-copy`).addEventListener('click', async (e) => {
+                    const boton = e.currentTarget, original = boton.textContent;
+                    const ctx = cajaCtx.value.trim();
+                    const texto = cajaTexto.value.trim() + (ctx ? '\n\n' + ctx : '');
+                    try {
+                        await navigator.clipboard.writeText(texto);
+                    } catch (err) {
+                        // Respaldo para navegadores que bloquean el portapapeles
+                        const ta = document.createElement('textarea');
+                        ta.value = texto; ta.style.position = 'fixed'; ta.style.opacity = '0';
+                        document.body.appendChild(ta); ta.select();
+                        try { document.execCommand('copy'); } catch (e2) {}
+                        document.body.removeChild(ta);
+                    }
+                    boton.textContent = 'Copiado';
+                    setTimeout(() => { boton.textContent = original; }, 1600);
+                });
+
+                document.getElementById(`${id}-select`).addEventListener('change', e => { periodoActual = e.target.value; pintar(); if (!panel.hidden) escribirAnalisis(); });
                 document.getElementById(`${id}-vista`).addEventListener('click', e => {
                     const b = e.target.closest('button[data-vista]');
                     if (!b) return;
@@ -2245,6 +2632,7 @@
                     document.getElementById(`${id}-vista`).querySelectorAll('button').forEach(x =>
                         x.setAttribute('aria-pressed', String(x.dataset.vista === vista)));
                     pintar();
+                    if (!panel.hidden) escribirAnalisis();
                 });
                 pintar();
             };
