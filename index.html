@@ -2004,22 +2004,11 @@
                 }
             });
             const formatoFecha = frDetectarFormatoFecha(textosFecha);
-            const ceSemanal = {};              // { válvula: { semana: [cumplimientos] } }
+            const ceSemanal = {};              // { válvula: { semana: [valores] } }
             const no3Semanal = {};             // ídem para N-NO3
+            const ejecSemanal = {};            // ídem para % Ejecución
+            const phSemanal = {};              // ídem para pH
             const semanasDelMes = new Set();
-
-            const avgPct = (dRow, tRow, tVal=null, ignZeros=false) => {
-                if (!dRow) return NaN;
-                const last6 = dRow.slice(Math.max(1, dRow.length - 6));
-                let s = 0, c = 0;
-                last6.forEach((v, i) => {
-                    const cur = parseNumericValue(v);
-                    if (ignZeros && cur === 0) return;
-                    const tgt = tVal !== null ? tVal : parseNumericValue(tRow?.[i + Math.max(1, dRow.length - 6)]);
-                    if (!isNaN(cur) && !isNaN(tgt) && tgt !== 0) { s += (cur / tgt) * 100; c++; }
-                });
-                return c > 0 ? s / c : NaN;
-            };
 
             workbookData.SheetNames.forEach(sn => {
                 const ws = workbookData.Sheets[sn];
@@ -2035,38 +2024,55 @@
                 /* Recorre las columnas de fecha de una fila, evalúa cada lectura contra su
                    rango y devuelve el cumplimiento del mes, dejando el desglose por semana
                    en el acumulador que se le pase. */
-                const recolectar = (fila, rango, acumulador) => {
+                const recolectar = (evaluarColumna, acumulador) => {
                     acumulador[vn] = {};
-                    if (!fila || !rango) return NaN;
                     const delMes = [];
                     for (let c = 1; c < filaFechas.length; c++) {
                         const texto = filaFechas[c];
                         if (texto === null || texto === undefined || String(texto).trim() === '') continue;
-                        const cmp = cumplimientoBanda(parseNumericValue(fila[c]), rango);
-                        if (isNaN(cmp)) continue;
-                        delMes.push(cmp);
+                        const valor = evaluarColumna(c);
+                        if (valor === null || valor === undefined || isNaN(valor)) continue;
+                        delMes.push(valor);
                         const t = frFechaATiempo(String(texto).trim(), formatoFecha);
                         if (t === null) continue;
                         const sem = getWeekNumber(new Date(t));
                         semanasDelMes.add(sem);
-                        (acumulador[vn][sem] = acumulador[vn][sem] || []).push(cmp);
+                        (acumulador[vn][sem] = acumulador[vn][sem] || []).push(valor);
                     }
                     return promedio(delMes);
                 };
+                const porBanda = (fila, rango) => c =>
+                    (fila && rango) ? cumplimientoBanda(parseNumericValue(fila[c]), rango) : NaN;
 
                 /* CE: se evalúa la fila real de CE Drenaje contra el rango de la variedad.
                    Ojo: indices.ceDre apunta a "CE Emisor", porque findIndex devuelve la
                    primera coincidencia de ('ce drenaje','ce emisor') y Emisor va primero
                    en la tabla dinámica. La fila correcta es indices.ceDrenajeReal. */
-                const ce = recolectar(json[indices.ceDrenajeReal], limites.ce, ceSemanal);
+                const ce = recolectar(porBanda(json[indices.ceDrenajeReal], limites.ce), ceSemanal);
 
                 /* N-NO3: mismo criterio contra el rango de nitrato de la variedad.
                    Se mide una vez por semana en cada válvula, así que cada semana del
                    selector corresponde a una sola lectura. */
-                const nno3 = recolectar(json[indices.no3], limites.no3, no3Semanal);
+                const nno3 = recolectar(porBanda(json[indices.no3], limites.no3), no3Semanal);
 
-                const ph = (indices.phDre !== -1 && indices.phEsp !== -1) ? avgPct(json[indices.phDre], json[indices.phEsp]) : NaN;
-                const ej = (indices.ejecucion !== -1) ? avgPct(json[indices.ejecucion], null, 100, true) : NaN;
+                /* % Ejecución: el valor del día es el propio porcentaje ejecutado. Puede
+                   venir como "80.60%" (→ 80.6) o como fracción (0.806), y los ceros son
+                   días sin riego registrado, no un cumplimiento del 0 %. */
+                const filaEjec = json[indices.ejecucion];
+                const ej = recolectar(c => {
+                    if (!filaEjec) return NaN;
+                    const n = parseNumericValue(filaEjec[c]);
+                    if (isNaN(n) || n === 0) return NaN;
+                    return Math.abs(n) <= 1 ? n * 100 : n;
+                }, ejecSemanal);
+
+                /* pH: mismo criterio de banda que CE y N-NO3, sobre la fila real de
+                   pH Drenaje y contra el rango único 5,5–6,5 que comparten todas las
+                   variedades (el mismo que usa la pestaña Programación Fertirriego).
+                   Ojo: indices.phDre apunta a "pH Emisor" por la misma razón que
+                   indices.ceDre apunta a "CE Emisor"; la fila correcta es phDrenajeReal. */
+                const ph = recolectar(porBanda(json[indices.phDrenajeReal], FR_RANGO_PH_DREN), phSemanal);
+
                 allValveData[vn] = { ce, ph, ejecucion: ej, nno3 };
                 if (!isNaN(ce)) { totalCE.s += ce; totalCE.c++; }
                 if (!isNaN(ph)) { totalPH.s += ph; totalPH.c++; }
@@ -2079,7 +2085,7 @@
                 <div class="stat-cards-row">
                     <div class="stat-mini-card"><div class="val">${fmt(totalEj)}%</div><div class="lbl">Ejecución promedio</div></div>
                     <div class="stat-mini-card"><div class="val">${fmt(totalCE)}%</div><div class="lbl">Cumplimiento CE drenaje</div></div>
-                    <div class="stat-mini-card"><div class="val">${fmt(totalPH)}%</div><div class="lbl">pH promedio</div></div>
+                    <div class="stat-mini-card"><div class="val">${fmt(totalPH)}%</div><div class="lbl">Cumplimiento pH drenaje</div></div>
                     <div class="stat-mini-card"><div class="val">${fmt(totalNNO3)}%</div><div class="lbl">Cumplimiento N-NO3</div></div>
                 </div>
                 <div class="charts-grid" id="bar-charts-grid"></div>
@@ -2104,55 +2110,6 @@
                 document.querySelector('.content-area')?.scrollTo({ top: 0, behavior: 'smooth' });
             };
 
-            const mkBarChart = (title, chartData, colors, yAxisLabel, yMax, l1, l2) => {
-                const card = document.createElement('div');
-                card.className = 'chart-card';
-                card.style.gridColumn = '1 / -1';
-                const wrap = document.createElement('div');
-                wrap.className = 'chart-container';
-                wrap.style.height = '280px';
-                const canvas = document.createElement('canvas');
-                wrap.appendChild(canvas);
-                card.appendChild(wrap);
-                grid.appendChild(card);
-                
-                let annotations = {};
-                if (l1 !== null && l2 !== null) {
-                    annotations.l1 = { type:'line', yMin:l1, yMax:l1, borderColor:'#eab308', borderWidth:2, borderDash:[6,4] };
-                    annotations.l2 = { type:'line', yMin:l2, yMax:l2, borderColor:'#eab308', borderWidth:2, borderDash:[6,4] };
-                }
-
-                return new Chart(canvas.getContext('2d'), {
-                    type: 'bar',
-                    data: {
-                        labels,
-                        datasets: [{ label: yAxisLabel, data: chartData, backgroundColor: colors, borderColor: colors.map(c => c.replace('0.75','1')), borderWidth: 1, borderRadius: 4 }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        onClick: (evt, elementos) => {
-                            if (elementos.length) irAVistaPorValvula(parseInt(sortedValves[elementos[0].index]));
-                        },
-                        onHover: (evt, elementos) => {
-                            evt.native.target.style.cursor = elementos.length ? 'pointer' : 'default';
-                        },
-                        scales: {
-                            y: { beginAtZero: true, max: yMax, title: { display: true, text: yAxisLabel, font: { size: 11 } } },
-                            x: { ticks: { maxRotation: 60, minRotation: 40, font: { size: 9 } }, grid: { display: false } }
-                        },
-                        plugins: {
-                            legend: { display: false },
-                            title: { display: true, text: title, font: { size: 13, weight: '700' }, color: '#1a1a1a', padding: { bottom: 8 } },
-                            tooltip: { callbacks: { afterLabel: () => 'Clic para abrir la planilla' } },
-                            annotation: { annotations }
-                        }
-                    }
-                });
-            };
-
-            mkBarChart('Cumplimiento % Ejecución', sortedValves.map(v => allValveData[v].ejecucion), getColors(sortedValves.map(v => allValveData[v].ejecucion)), 'Cumplimiento (%)', 150, 90, 110);
-
             /* ── Gráficas de cumplimiento con selector de semana ──
                Comparten el mismo armado: CE drenaje y N-NO3 se evalúan contra el rango
                de la variedad y se pueden ver por mes completo o por semana ISO. */
@@ -2160,7 +2117,9 @@
 
             const COLOR_MES = 'rgba(55, 65, 81, 0.75)';   // barra del total mensual en la vista resumen
 
-            const mkComplianceChart = ({ id, titulo, ayuda, clave, acumulador }) => {
+            const mkComplianceChart = ({ id, titulo, ayuda, clave, acumulador, yMax = 110, lineas = [90] }) => {
+                // "En rango" es estar sobre la línea única, o entre las dos cuando hay par.
+                const enRango = n => lineas.length > 1 ? (n >= lineas[0] && n <= lineas[1]) : n >= lineas[0];
                 const valorDe = (vn, periodo) => {
                     if (periodo === 'mes') return allValveData[vn][clave];
                     const vals = (acumulador[vn] || {})[periodo];
@@ -2214,18 +2173,28 @@
                         fondos = getColors(datos);
                         fondos[fondos.length - 1] = COLOR_MES;        // el total se distingue del resto
                         const conDato = datos.slice(0, -1).filter(n => !isNaN(n));
-                        const mejor = conDato.length ? Math.max(...conDato) : NaN;
-                        const peor  = conDato.length ? Math.min(...conDato) : NaN;
-                        resumen = conDato.length
-                            ? `Mes ${datos[datos.length-1].toFixed(1)} % · mejor semana ${mejor.toFixed(1)} % · peor ${peor.toFixed(1)} %`
-                            : 'Sin lecturas en el archivo';
+                        const alta = conDato.length ? Math.max(...conDato) : NaN;
+                        const baja = conDato.length ? Math.min(...conDato) : NaN;
+                        const mes = datos[datos.length - 1];
+                        /* Con dos líneas el objetivo es una banda alrededor del 100 %, así que
+                           pasarse es tan malo como quedarse corto: ahí no se habla de "mejor"
+                           sino de la más alta y la más baja, más cuántas semanas se salieron. */
+                        if (!conDato.length) {
+                            resumen = 'Sin lecturas en el archivo';
+                        } else if (lineas.length > 1) {
+                            const fuera = conDato.filter(n => !enRango(n)).length;
+                            resumen = `Mes ${mes.toFixed(1)} % · más alta ${alta.toFixed(1)} % · más baja ${baja.toFixed(1)} %`
+                                    + ` · ${fuera} de ${conDato.length} semanas fuera de ${lineas[0]}–${lineas[1]} %`;
+                        } else {
+                            resumen = `Mes ${mes.toFixed(1)} % · mejor semana ${alta.toFixed(1)} % · peor ${baja.toFixed(1)} %`;
+                        }
                     } else {
                         etiquetas = labels;
                         datos = sortedValves.map(v => valorDe(v, periodoActual));
                         fondos = getColors(datos);
                         const validos = datos.filter(n => !isNaN(n));
                         resumen = validos.length
-                            ? `Promedio ${(validos.reduce((a,b)=>a+b,0)/validos.length).toFixed(1)} % · ${validos.filter(n=>n>=90).length} de ${validos.length} válvulas en rango`
+                            ? `Promedio ${(validos.reduce((a,b)=>a+b,0)/validos.length).toFixed(1)} % · ${validos.filter(enRango).length} de ${validos.length} válvulas en rango`
                             : 'Sin lecturas en este periodo';
                     }
                     document.getElementById(`${id}-avg`).textContent = resumen;
@@ -2254,16 +2223,15 @@
                                 evt.native.target.style.cursor = (vista === 'valvula' && elementos.length) ? 'pointer' : 'default';
                             },
                             scales: {
-                                y: { beginAtZero: true, max: 110, title: { display: true, text: 'Cumplimiento (%)', font: { size: 11 } } },
+                                y: { beginAtZero: true, max: yMax, title: { display: true, text: 'Cumplimiento (%)', font: { size: 11 } } },
                                 x: { ticks: { maxRotation: 60, minRotation: 40, font: { size: 9 } }, grid: { display: false } }
                             },
                             plugins: {
                                 legend: { display: false },
                                 title: { display: false },
                                 tooltip: { callbacks: { afterLabel: () => vista === 'valvula' ? 'Clic para abrir la planilla' : '' } },
-                                annotation: { annotations: {
-                                    l1: { type:'line', yMin:90, yMax:90, borderColor:'#eab308', borderWidth:2, borderDash:[6,4] }
-                                } }
+                                annotation: { annotations: Object.fromEntries(lineas.map((y, i) =>
+                                    [`l${i}`, { type:'line', yMin:y, yMax:y, borderColor:'#eab308', borderWidth:2, borderDash:[6,4] }])) }
                             }
                         }
                     });
@@ -2282,12 +2250,23 @@
             };
 
             mkComplianceChart({
+                id: 'ejec-week', clave: 'ejecucion', acumulador: ejecSemanal,
+                yMax: 150, lineas: [90, 110],
+                titulo: 'Cumplimiento % Ejecución',
+                ayuda: 'Porcentaje del volumen programado que se ejecutó. En rango entre 90 % y 110 %.'
+            });
+
+            mkComplianceChart({
                 id: 'ce-week', clave: 'ce', acumulador: ceSemanal,
                 titulo: 'Cumplimiento Conductividad Eléctrica (drenaje)',
                 ayuda: '100 % si la lectura cae dentro del rango de la variedad; fuera del rango baja según la distancia al borde.'
             });
 
-            mkBarChart('Cumplimiento pH', sortedValves.map(v => allValveData[v].ph), getColors(sortedValves.map(v => allValveData[v].ph)), 'Cumplimiento (%)', 150, 90, 110);
+            mkComplianceChart({
+                id: 'ph-week', clave: 'ph', acumulador: phSemanal,
+                titulo: 'Cumplimiento pH (drenaje)',
+                ayuda: `100 % si la lectura cae dentro del rango ${frNum(FR_RANGO_PH_DREN[0],1)}–${frNum(FR_RANGO_PH_DREN[1],1)}, igual para todas las variedades; fuera del rango baja según la distancia al borde.`
+            });
 
             mkComplianceChart({
                 id: 'no3-week', clave: 'nno3', acumulador: no3Semanal,
