@@ -1587,6 +1587,20 @@
                 const label = String(row[0]).toLowerCase();
                 return searchTerms.some(term => label.includes(term));
             });
+            /* Igual que el anterior, pero comparando sin signos ni acentos. Se usa
+               para el escurrido: el encabezado del Excel dice "C,E Escurridos"
+               —con coma y en plural— y la búsqueda normal no lo reconocía. Así
+               "C,E Escurridos", "C.E Escurrido" y "CE Escurrido" dan lo mismo. */
+            const compacta = s => String(s).toLowerCase().normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+            const findRowIdxCompacto = (...searchTerms) => {
+                const terminos = searchTerms.map(compacta);
+                return data.findIndex(row => {
+                    if (!row || !row[0]) return false;
+                    const label = compacta(row[0]);
+                    return terminos.some(term => label.includes(term));
+                });
+            };
             return {
                 ceEsp: findRowIdx('ce esperada', 'ce esperado'),
                 ceDre: findRowIdx('ce drenaje', 'ce emisor'),
@@ -1603,8 +1617,8 @@
 
                 /* Escurrido: medición semanal, así que la fila viene casi toda vacía
                    y la serie se dibuja uniendo los pocos puntos que hay. */
-                ceEscurrido: findRowIdx('ce escurrido'),
-                phEscurrido: findRowIdx('ph escurrido'),
+                ceEscurrido: findRowIdxCompacto('ce escurrido'),
+                phEscurrido: findRowIdxCompacto('ph escurrido'),
 
                 pctDrenaje: findRowIdx('% drenaje', 'porcentaje de drenaje')
             };
@@ -1640,9 +1654,20 @@
                 ? data[headerRowIndex]
                 : (data[0] || []);
 
+            /* Las filas que entrega SheetJS son dispersas: una celda vacía no queda
+               como vacío sino como hueco, y forEach se salta los huecos. Por eso una
+               fila con pocos datos —el escurrido, el N-NO3— se dibujaba corrida hacia
+               la izquierda y sus valores aparecían bajo la fecha equivocada. La tabla
+               se recorre por índice y con un número fijo de columnas para evitarlo. */
+            const nCols = data.reduce((m, r) => Math.max(m, r ? r.length : 0), headerSourceRow.length);
+
             const thead = document.createElement('thead');
             const hr = document.createElement('tr');
-            headerSourceRow.forEach(h => { const th = document.createElement('th'); th.textContent = h ?? ''; hr.appendChild(th); });
+            for (let ci = 0; ci < nCols; ci++) {
+                const th = document.createElement('th');
+                th.textContent = headerSourceRow[ci] ?? '';
+                hr.appendChild(th);
+            }
             thead.appendChild(hr);
             table.appendChild(thead);
             
@@ -1659,7 +1684,8 @@
 
                 const isDrenaje = rowLabel.includes('%') && rowLabel.includes('drenaje');
                 const tr = document.createElement('tr');
-                rowData.forEach((cell, ci) => {
+                for (let ci = 0; ci < nCols; ci++) {
+                    const cell = rowData[ci];
                     const td = document.createElement('td');
                     td.textContent = cell ?? '';
                     if (ci > 0) {
@@ -1686,7 +1712,7 @@
                     if (ci === 0) td.style.whiteSpace = 'nowrap';
                     if (typeof td.textContent === 'string' && td.textContent.toLowerCase().includes('valvula')) td.classList.add('row-label-blue');
                     tr.appendChild(td);
-                });
+                }
                 if (origIdx === 1) tr.querySelectorAll('td').forEach(td => td.classList.add('row-label-blue'));
                 tbody.appendChild(tr);
             });
@@ -1759,10 +1785,15 @@
                     dRows.forEach((row, j) => dsData[j].push(cleanValue(row[i], cfg.isPercentage)));
                 }
                 const datasets = dRows.map((row, i) => {
-                    const etiqueta = row[0]?.trim() ?? `Serie ${i+1}`;
+                    const cruda = row[0]?.trim() ?? `Serie ${i+1}`;
                     // El escurrido se mide una vez por semana: línea punteada y puntos
                     // más grandes, para que no se confunda con las series diarias.
-                    const semanal = /escurrid/i.test(etiqueta);
+                    const semanal = /escurrid/i.test(cruda);
+                    // En la leyenda no se muestra el encabezado tal cual
+                    // ("C,E Escurridos") sino el nombre limpio de la variable.
+                    const etiqueta = semanal
+                        ? (/^\s*p\s*h/i.test(cruda) ? 'pH Escurrido' : 'CE Escurrido')
+                        : cruda;
                     return {
                         label: etiqueta,
                         data: dsData[i],
