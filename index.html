@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <title>Monitoreo MIRFE PM Rosa</title>
+    <title>Monitoreo MIRFE · Flores El Tandil – Primavera</title>
+    <link rel="icon" href="logo.jpg" type="image/jpeg">
+    <link rel="apple-touch-icon" href="logo.jpg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -26,6 +28,11 @@
             --ink-100: #f0f0f0;
             --ink-050: #f8f8f8;
             --white:   #ffffff;
+
+            /* Color de la rosa del logo de Tandil, usado solo como acento */
+            --marca:    #72187c;
+            --marca-400:#8e5a95;
+            --marca-050:#f7eff8;
 
             /* Semáforo: mínimo color, máximo contraste */
             --ok:   #2a7a2a;
@@ -57,26 +64,61 @@
             color: var(--ink-900);
             padding: 10px 20px;
             display: flex;
-            justify-content: space-between;
+            /* El bloque de marca va pegado a la izquierda y los controles a la
+               derecha. Con space-between la marca quedaba flotando al centro,
+               porque el botón de menú (oculto en escritorio) cuenta como ítem. */
+            justify-content: flex-start;
+            gap: 20px;
             align-items: center;
             border-bottom: 2px solid var(--ink-200);
             position: sticky;
             top: 0;
             z-index: 100;
         }
+        /* Bloque de marca: logo de la empresa + nombre del sistema */
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .brand-logo {
+            height: 54px;
+            width: auto;
+            display: block;
+            flex-shrink: 0;
+        }
+        .brand-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding-left: 14px;
+            border-left: 3px solid var(--marca);
+        }
         .header-left h1 {
-            font-size: 1.2rem;
+            font-size: 1.05rem;
             font-weight: 800;
             margin: 0;
             color: #2a7a2a;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+            line-height: 1.18;
+            letter-spacing: -0.01em;
+        }
+        .header-left h1 .brand-sede {
+            display: block;
+            color: var(--marca);
+        }
+        .brand-sub {
+            margin: 0;
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            color: var(--marca-400);
         }
         .header-right {
             display: flex;
             align-items: center;
             gap: 16px;
+            margin-left: auto;
         }
         .header-control {
             display: flex;
@@ -216,6 +258,9 @@
             z-index: 90;
         }
         .tab-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
             padding: 16px 20px;
             font-size: 0.85rem;
             font-weight: 700;
@@ -232,6 +277,33 @@
             color: #2a7a2a;
             border-bottom-color: #2a7a2a;
         }
+
+        .tab-ico { font-size: 0.95rem; line-height: 1; }
+
+        /* ── FICHAS DE CONTEXTO (bloque, válvula, variedad, hoja) ── */
+        .chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 13px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            border: 1.5px solid transparent;
+            white-space: nowrap;
+        }
+        .chip-ico { font-size: 0.92rem; line-height: 1; }
+        .chip-bloque   { background:#eef4ff;          color:#1e40af;      border-color:#c7d9fb; }
+        .chip-valvula  { background:#fff7e6;          color:#8a5a00;      border-color:#fbe0b0; }
+        .chip-variedad { background:var(--marca-050); color:var(--marca); border-color:#e6cdea; }
+        .chip-hoja     { background:var(--ink-100);   color:var(--ink-500); border-color:var(--ink-200); margin-left:auto; }
 
         /* ── CONTENIDO DE PESTAÑAS ── */
         .tab-pane { display: none; padding: 16px; }
@@ -258,7 +330,20 @@
             font-size: 0.82rem;
             font-weight: 700;
             letter-spacing: 0.3px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
+        .block-count {
+            margin-left: auto;
+            background: rgba(255,255,255,0.16);
+            border-radius: 999px;
+            padding: 2px 9px;
+            font-size: 0.66rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+        .sidebar-title .tab-ico { margin-right: 6px; }
         .block-body {
             padding: 12px;
             display: flex;
@@ -479,6 +564,11 @@
             padding: 12px;
             text-align: center;
         }
+        .stat-mini-card .stat-ico {
+            font-size: 1.05rem;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
         .stat-mini-card .val {
             font-size: 1.5rem;
             font-weight: 800;
@@ -558,6 +648,19 @@
             color: var(--ink-300);
             padding: 24px 16px 32px;
         }
+        .footer-marca {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--marca-400);
+        }
+        .footer-marca img { height: 38px; width: auto; }
 
         /* Vacío */
         .empty-state {
@@ -728,6 +831,9 @@
                 align-items: flex-start;
                 padding: 10px 15px;
             }
+            .brand-logo { height: 42px; }
+            .brand-text { padding-left: 10px; }
+            .header-left h1 { font-size: 0.95rem; }
             .header-right {
                 width: 100%;
                 justify-content: flex-start;
@@ -821,6 +927,7 @@
         .fr-head h2 {
             font-size: 1.25rem; font-weight: 800; margin: 0;
             color: var(--ink-900); letter-spacing: -.01em;
+            display: flex; align-items: center; gap: 8px;
         }
         .fr-head .fr-sub { font-size: .8rem; color: var(--ink-500); margin-top: 2px; }
         .fr-chips { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -1047,7 +1154,10 @@
             padding-bottom: 10px; margin-bottom: 6px;
             border-bottom: 1px solid var(--ink-100);
         }
-        .ce-week-title { font-size: .82rem; font-weight: 800; color: var(--ink-900); }
+        .ce-week-title {
+            font-size: .82rem; font-weight: 800; color: var(--ink-900);
+            display: flex; align-items: center; gap: 7px;
+        }
         .ce-week-help { font-size: .7rem; color: var(--ink-400); margin-top: 2px; max-width: 54ch; }
         .ce-week-control { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .ce-week-control label {
@@ -1144,9 +1254,12 @@
                 </svg>
             </button>
         </div>
-        <div class="header-left" style="display: flex; align-items: center; gap: 15px;">
-            <img src="mascota_mirfe.png" alt="Mascota MIRFE" style="height: 80px; width: 80px; object-fit: cover; border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.4); border: 3px solid white; background: #fff;">
-            <h1>🌱 Monitoreo MIRFE PM Rosa</h1>
+        <div class="header-left">
+            <img src="logo.jpg" alt="Flores El Tandil" class="brand-logo">
+            <div class="brand-text">
+                <h1>Monitoreo MIRFE<span class="brand-sede">Flores El Tandil – Primavera</span></h1>
+                <p class="brand-sub">Sistema de control de fertirriego</p>
+            </div>
         </div>
         <div class="header-right">
             <div class="header-control">
@@ -1198,16 +1311,16 @@
     <div id="mobile-overlay" class="mobile-overlay"></div>
     <div class="main-layout">
         <aside class="sidebar">
-            <div class="sidebar-title">BLOQUES Y VÁLVULAS</div>
+            <div class="sidebar-title"><span class="tab-ico">🗂️</span>BLOQUES Y VÁLVULAS</div>
             <div id="blocks-container"></div>
         </aside>
 
         <main class="content-area">
             <nav class="tab-bar" id="tab-bar">
-                <button class="tab-btn active" data-tab="valves-view" id="valves-tab">• Vista por Válvula •</button>
-                <button class="tab-btn" data-tab="fertirriego-view" id="fertirriego-tab">Programación Fertirriego</button>
-                <button class="tab-btn" data-tab="report-view" id="report-tab">Reporte Semanal</button>
-                <button class="tab-btn" data-tab="graphs-view" id="graphs-tab">Gráficas Comparativas</button>
+                <button class="tab-btn active" data-tab="valves-view" id="valves-tab"><span class="tab-ico">💧</span>Vista por Válvula</button>
+                <button class="tab-btn" data-tab="fertirriego-view" id="fertirriego-tab"><span class="tab-ico">🗓️</span>Programación Fertirriego</button>
+                <button class="tab-btn" data-tab="report-view" id="report-tab"><span class="tab-ico">📋</span>Reporte Semanal</button>
+                <button class="tab-btn" data-tab="graphs-view" id="graphs-tab"><span class="tab-ico">📈</span>Gráficas Comparativas</button>
             </nav>
 
             <div id="loading" style="display:none;" class="loader-wrap">
@@ -1273,7 +1386,13 @@
         </main>
     </div>
 
-    <footer>Desarrollado por Victor Fabian Intencipa y Juan Esteban Trujillo</footer>
+    <footer>
+        <div class="footer-marca">
+            <img src="logo.jpg" alt="Flores El Tandil">
+            <span>Flores El Tandil – Primavera · Producción Rosa</span>
+        </div>
+        Desarrollado por Victor Fabian Intencipa y Juan Esteban Trujillo
+    </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -1482,6 +1601,13 @@
         };
         const cleanSumaText = v => typeof v === 'string' ? v.replace(/^[Ss][uú]ma\s+de\s+/i, '').replace(/^[Ss][uú]ma\s+/i, '') : v;
         const cleanSheetData = d => Array.isArray(d) ? d.map(r => Array.isArray(r) ? r.map(cleanSumaText) : r) : d;
+        /* En el Excel el escurrido quedó como "C,E Escurridos" —con coma y en
+           plural—. En pantalla y en los PDF se muestra con el nombre limpio,
+           sin tocar el libro. */
+        const nombreBonito = v => {
+            if (typeof v !== 'string' || !/escurrid/i.test(v)) return v;
+            return /^\s*p\s*h/i.test(v.trim()) ? 'pH Escurrido' : 'CE Escurrido';
+        };
 
         function getSheetJson(ws) {
             if (ws && ws['!ref']) {
@@ -1536,7 +1662,15 @@
                     card.className = 'block-card';
                     const hdr = document.createElement('div');
                     hdr.className = 'block-header';
-                    hdr.textContent = bn;
+                    const ico = document.createElement('span');
+                    ico.className = 'tab-ico';
+                    ico.textContent = '🧱';
+                    const nom = document.createElement('span');
+                    nom.textContent = bn;
+                    const cuenta = document.createElement('span');
+                    cuenta.className = 'block-count';
+                    cuenta.textContent = valvesByBlock[bn].length + ' válv';
+                    hdr.append(ico, nom, cuenta);
                     const body = document.createElement('div');
                     body.className = 'block-body';
                     valvesByBlock[bn].sort((a, b) => a.valveNumber - b.valveNumber).forEach(({ sheetName, valveNumber }) => {
@@ -1624,6 +1758,33 @@
             };
         }
 
+        /* Fila de fichas sobre la tabla: de un vistazo se ve en qué bloque,
+           válvula, variedad y hoja del Excel se está parado. */
+        function crearChipsValvula(container, sheetName) {
+            const m = sheetName ? sheetName.match(/\((\d+)\)/) : null;
+            const nv = m ? parseInt(m[1]) : null;
+            if (!nv) return;
+            const fichas = [
+                ['chip-bloque',   '🧱', getBlockForValve(nv).join(' · ') || 'Sin bloque'],
+                ['chip-valvula',  '💧', 'Válvula ' + nv],
+                ['chip-variedad', '🌹', 'Variedad: ' + (getVarietyForValve(nv) || '—')],
+                ['chip-hoja',     '📄', 'Hoja: ' + sheetName]
+            ];
+            const fila = document.createElement('div');
+            fila.className = 'chip-row';
+            fichas.forEach(([clase, icono, texto]) => {
+                const chip = document.createElement('span');
+                chip.className = 'chip ' + clase;
+                const i = document.createElement('span');
+                i.className = 'chip-ico';
+                i.textContent = icono;
+                chip.appendChild(i);
+                chip.appendChild(document.createTextNode(texto));
+                fila.appendChild(chip);
+            });
+            container.appendChild(fila);
+        }
+
         function displaySheetContent(sheetName) {
             sheetContentContainer.innerHTML = '';
             activeCharts.forEach(c => c.destroy());
@@ -1632,6 +1793,7 @@
             const json = getSheetJson(ws);
             if (json.length > 0) {
                 const indices = findRowIndices(json);
+                crearChipsValvula(sheetContentContainer, sheetName);
                 createTable(sheetContentContainer, json, indices);
                 createCharts(sheetContentContainer, json, sheetName, indices);
             } else {
@@ -1687,7 +1849,7 @@
                 for (let ci = 0; ci < nCols; ci++) {
                     const cell = rowData[ci];
                     const td = document.createElement('td');
-                    td.textContent = cell ?? '';
+                    td.textContent = (ci === 0 ? nombreBonito(cell) : cell) ?? '';
                     if (ci > 0) {
                         if (isDrenaje) {
                             const v = parseNumericValue(cell);
@@ -1720,6 +1882,14 @@
             wrap.appendChild(table);
             container.appendChild(wrap);
         }
+
+        /* Un icono por variable, para reconocer la gráfica sin leer el título.
+           Se arma aparte y no se guarda en cfg.title, que se usa en otros sitios. */
+        const ICONO_GRAFICA = {
+            ce: '⚡', ph: '🧪', ejecucion: '🎯',
+            no3: '🌿', volumen: '💧', pct_drenaje: '💦'
+        };
+        const tituloConIcono = cfg => (ICONO_GRAFICA[cfg.id] ? ICONO_GRAFICA[cfg.id] + '  ' : '') + cfg.title;
 
         /* ── GRÁFICAS POR VÁLVULA ── */
         function createCharts(container, data, sheetName, indices, isForPrint = false) {
@@ -1791,9 +1961,7 @@
                     const semanal = /escurrid/i.test(cruda);
                     // En la leyenda no se muestra el encabezado tal cual
                     // ("C,E Escurridos") sino el nombre limpio de la variable.
-                    const etiqueta = semanal
-                        ? (/^\s*p\s*h/i.test(cruda) ? 'pH Escurrido' : 'CE Escurrido')
-                        : cruda;
+                    const etiqueta = nombreBonito(cruda);
                     return {
                         label: etiqueta,
                         data: dsData[i],
@@ -1866,7 +2034,7 @@
                     },
                     plugins: {
                         legend: { display: true, position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } },
-                        title: { display: true, text: cfg.title, font: { size: 13, weight: '700' }, color: '#1a1a1a', padding: { bottom: 8 } }
+                        title: { display: true, text: tituloConIcono(cfg), font: { size: 13, weight: '700' }, color: '#1a1a1a', padding: { bottom: 8 } }
                     }
                 };
 
@@ -2206,10 +2374,10 @@
             const fmt = (o) => (o.c > 0 ? (o.s / o.c).toFixed(1) : '—');
             graphsContainer.innerHTML = `
                 <div class="stat-cards-row">
-                    <div class="stat-mini-card"><div class="val">${fmt(totalEj)}%</div><div class="lbl">Ejecución promedio</div></div>
-                    <div class="stat-mini-card"><div class="val">${fmt(totalCE)}%</div><div class="lbl">Cumplimiento CE drenaje</div></div>
-                    <div class="stat-mini-card"><div class="val">${fmt(totalPH)}%</div><div class="lbl">Cumplimiento pH drenaje</div></div>
-                    <div class="stat-mini-card"><div class="val">${fmt(totalNNO3)}%</div><div class="lbl">Cumplimiento N-NO3</div></div>
+                    <div class="stat-mini-card"><div class="stat-ico">🎯</div><div class="val">${fmt(totalEj)}%</div><div class="lbl">Ejecución promedio</div></div>
+                    <div class="stat-mini-card"><div class="stat-ico">⚡</div><div class="val">${fmt(totalCE)}%</div><div class="lbl">Cumplimiento CE drenaje</div></div>
+                    <div class="stat-mini-card"><div class="stat-ico">🧪</div><div class="val">${fmt(totalPH)}%</div><div class="lbl">Cumplimiento pH drenaje</div></div>
+                    <div class="stat-mini-card"><div class="stat-ico">🌿</div><div class="val">${fmt(totalNNO3)}%</div><div class="lbl">Cumplimiento N-NO3</div></div>
                 </div>
                 <div class="charts-grid" id="bar-charts-grid"></div>
             `;
@@ -2485,6 +2653,10 @@
                 return p.join('\n\n');
             };
 
+            /* Mismo icono que en las gráficas por válvula, para que la variable
+               se reconozca igual en las dos pestañas. */
+            const ICONO_CLAVE = { ejecucion: '🎯', ce: '⚡', ph: '🧪', nno3: '🌿' };
+
             const mkComplianceChart = ({ id, titulo, ayuda, clave, acumulador, yMax = 110, lineas = [90] }) => {
                 // "En rango" es estar sobre la línea única, o entre las dos cuando hay par.
                 const enRango = n => lineas.length > 1 ? (n >= lineas[0] && n <= lineas[1]) : n >= lineas[0];
@@ -2506,7 +2678,7 @@
                 card.innerHTML = `
                     <div class="ce-week-bar">
                         <div>
-                            <div class="ce-week-title">${titulo}</div>
+                            <div class="ce-week-title"><span class="tab-ico">${ICONO_CLAVE[clave] || ''}</span>${titulo}</div>
                             <div class="ce-week-help">${ayuda}</div>
                         </div>
                         <div class="ce-week-control">
@@ -2941,7 +3113,7 @@
             cont.innerHTML = `
                 <div class="fr-head">
                     <div>
-                        <h2>Programación Fertirriego</h2>
+                        <h2><span class="tab-ico">🗓️</span>Programación Fertirriego</h2>
                         <div class="fr-sub">CE drenaje y N-NO3 por válvula — últimos ${datos.fechas.length} días de monitoreo</div>
                     </div>
                     <div class="fr-chips">${chips}</div>
@@ -3296,7 +3468,7 @@
                     <table class="print-header-table">
                         <tr>
                             <td rowspan="2" style="width: 15%; text-align: center; vertical-align: middle;">
-                                <img src="logo_tandil.png" alt="Logo Tandil" style="max-width: 100px; max-height: 60px;">
+                                <img src="logo.jpg" alt="Logo Tandil" style="max-width: 100px; max-height: 60px;">
                             </td>
                             <td colspan="4" class="title-cell" style="width: 70%;">
                                 FLORES EL TANDIL S.A.S - SEDE PRIMAVERA<br>
