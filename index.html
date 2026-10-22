@@ -1601,6 +1601,11 @@
                 phDrenajeReal: findRowIdx('ph drenaje'),
                 phEmisorReal: findRowIdx('ph emisor'),
 
+                /* Escurrido: medición semanal, así que la fila viene casi toda vacía
+                   y la serie se dibuja uniendo los pocos puntos que hay. */
+                ceEscurrido: findRowIdx('ce escurrido'),
+                phEscurrido: findRowIdx('ph escurrido'),
+
                 pctDrenaje: findRowIdx('% drenaje', 'porcentaje de drenaje')
             };
         }
@@ -1708,22 +1713,27 @@
             const configs = [];
             const headerRowIndex = findDateHeaderRowIndex(data);
             
+            /* Orden de las series: emisor, drenaje y escurrido. El escurrido es una
+               medición semanal, así que su fila viene casi toda vacía; se dibuja
+               igual porque las gráficas unen los huecos (spanGaps). */
             const ceRows = [];
-            if (indices.ceEmisorReal !== -1) ceRows.push(indices.ceEmisorReal);
+            if (indices.ceEmisorReal !== -1)  ceRows.push(indices.ceEmisorReal);
             if (indices.ceDrenajeReal !== -1) ceRows.push(indices.ceDrenajeReal);
-            
+            if (indices.ceEscurrido !== -1)   ceRows.push(indices.ceEscurrido);
+
             if (ceRows.length > 0) {
-                configs.push({ id: 'ce', title: 'Conductividad Eléctrica', headerRowIndex, dataRowIndices: ceRows, maxRow: Math.max(...ceRows), colors: ['#0ea5e9', '#f97316'], isPercentage: false });
+                configs.push({ id: 'ce', title: 'Conductividad Eléctrica', headerRowIndex, dataRowIndices: ceRows, maxRow: Math.max(...ceRows), colors: ['#0ea5e9', '#f97316', '#14713a'], isPercentage: false });
             } else if (indices.ceDre !== -1) {
                 configs.push({ id: 'ce', title: 'Conductividad Eléctrica', headerRowIndex, dataRowIndices: [indices.ceDre], maxRow: indices.ceDre, colors: ['#f97316'], isPercentage: false });
             }
 
             const phRows = [];
-            if (indices.phEmisorReal !== -1) phRows.push(indices.phEmisorReal);
+            if (indices.phEmisorReal !== -1)  phRows.push(indices.phEmisorReal);
             if (indices.phDrenajeReal !== -1) phRows.push(indices.phDrenajeReal);
-            
+            if (indices.phEscurrido !== -1)   phRows.push(indices.phEscurrido);
+
             if (phRows.length > 0) {
-                configs.push({ id: 'ph', title: 'pH', headerRowIndex, dataRowIndices: phRows, maxRow: Math.max(...phRows), colors: ['#8b5cf6', '#ec4899'], isPercentage: false });
+                configs.push({ id: 'ph', title: 'pH', headerRowIndex, dataRowIndices: phRows, maxRow: Math.max(...phRows), colors: ['#8b5cf6', '#ec4899', '#0f766e'], isPercentage: false });
             } else if (indices.phDre !== -1) {
                 configs.push({ id: 'ph', title: 'pH', headerRowIndex, dataRowIndices: [indices.phDre], maxRow: indices.phDre, colors: ['#ec4899'], isPercentage: false });
             }
@@ -1748,17 +1758,24 @@
                     labels.push(hVal !== '' ? hVal : `S${i}`);
                     dRows.forEach((row, j) => dsData[j].push(cleanValue(row[i], cfg.isPercentage)));
                 }
-                const datasets = dRows.map((row, i) => ({
-                    label: row[0]?.trim() ?? `Serie ${i+1}`,
-                    data: dsData[i],
-                    fill: false,
-                    borderColor: cfg.colors[i % cfg.colors.length],
-                    backgroundColor: cfg.colors[i % cfg.colors.length],
-                    tension: 0.2,
-                    spanGaps: true,
-                    pointRadius: 3,
-                    borderWidth: 2
-                }));
+                const datasets = dRows.map((row, i) => {
+                    const etiqueta = row[0]?.trim() ?? `Serie ${i+1}`;
+                    // El escurrido se mide una vez por semana: línea punteada y puntos
+                    // más grandes, para que no se confunda con las series diarias.
+                    const semanal = /escurrid/i.test(etiqueta);
+                    return {
+                        label: etiqueta,
+                        data: dsData[i],
+                        fill: false,
+                        borderColor: cfg.colors[i % cfg.colors.length],
+                        backgroundColor: cfg.colors[i % cfg.colors.length],
+                        tension: 0.2,
+                        spanGaps: true,
+                        pointRadius: semanal ? 5 : 3,
+                        borderWidth: 2,
+                        borderDash: semanal ? [7, 4] : undefined
+                    };
+                });
                 const card = document.createElement('div');
                 card.className = 'chart-card';
                 const wrap = document.createElement('div');
