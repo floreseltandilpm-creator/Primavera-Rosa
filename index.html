@@ -1580,11 +1580,11 @@
             if ([15,16,17,36,37].includes(v)) return { ce: [1.7, 2.3], no3: [180, 220] };
             if ([18,47].includes(v)) return { ce: [1.8, 2.4], no3: [180, 220] };
             if ([19,52].includes(v)) return { ce: [1.8, 2.5], no3: [180, 220] };
-            if ([20,51].includes(v)) return { ce: [1.8, 2.4], no3: [160, 200] };
+            if ([20,53].includes(v)) return { ce: [1.8, 2.4], no3: [160, 200] };
             if ([33,34,35,50].includes(v)) return { ce: [2.4, 3], no3: [180, 220] };
             if ([38].includes(v)) return { ce: [1.7, 2.3], no3: [180, 220] };
             if ([39,40,41].includes(v)) return { ce: [1.7, 2.1], no3: [180, 220] };
-            if ([42,43,44,53].includes(v)) return { ce: [1.8, 2.4], no3: [160, 200] };
+            if ([42,43,44,51].includes(v)) return { ce: [1.8, 2.4], no3: [160, 200] };
             if ([45].includes(v)) return { ce: [1.8, 2.4], no3: [160, 200] };
             if ([46].includes(v)) return { ce: [1.8, 2.4], no3: [180, 220] };
             if ([48,49].includes(v)) return { ce: [2.4, 3], no3: [180, 220] };
@@ -1599,11 +1599,11 @@
             if ([15,16,17,36,37].includes(v)) return 'Amarela';
             if ([18,47].includes(v)) return 'Vainilla';
             if ([19,52].includes(v)) return 'Kendal';
-            if ([20,51].includes(v)) return 'Ameli';
+            if ([20,53].includes(v)) return 'Ameli';
             if ([33,34,35,50].includes(v)) return 'Jacaranda';
             if ([38].includes(v)) return 'Texas';
             if ([39,40,41].includes(v)) return 'Blessing';
-            if ([42,43,44,53].includes(v)) return 'Aperol';
+            if ([42,43,44,51].includes(v)) return 'Aperol';
             if ([45].includes(v)) return 'Suggar Doll';
             if ([46].includes(v)) return 'Dakar';
             if ([48,49].includes(v)) return 'Brave in Dark';
@@ -3636,5 +3636,294 @@
             });
         });
     </script>
+    <!-- ══════════ NAVEGACIÓN MÓVIL (≤ 768 px) ══════════
+         Barra superior compacta, selector de válvula con flechas,
+         hoja inferior para elegir válvula y barra de pestañas abajo.
+         En escritorio no cambia nada. -->
+    <style>
+        .m-only { display: none; }
+        @media (max-width: 768px) {
+            .m-only { display: revert; }
+            body { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
+
+            /* Encabezado compacto en una sola fila */
+            .app-header {
+                flex-direction: row !important; align-items: center !important;
+                padding: 8px 12px !important; gap: 10px !important; min-height: 56px;
+            }
+            .app-header > div:first-child, .mobile-menu-btn,
+            .app-header .brand-sub, .app-header .header-right { display: none !important; }
+            .app-header .brand-logo { height: 30px !important; }
+            .app-header .brand-text { padding-left: 8px !important; min-width: 0; }
+            .app-header h1 { font-size: 0.86rem !important; line-height: 1.15; margin: 0; white-space: nowrap; }
+            .app-header .brand-sede { display: block; font-size: 0.7rem; }
+            .m-top-actions { display: flex !important; align-items: center; gap: 6px; margin-left: auto; }
+            .m-top-actions .header-control { padding: 0 !important; margin: 0 !important; }
+            .m-top-actions .control-label { display: none; }
+            .m-top-actions #month-select {
+                font-size: 0.8rem; font-weight: 700; padding: 6px 8px; max-width: 104px;
+                border-radius: 999px; border: 1.5px solid var(--ink-200); background: var(--white);
+            }
+            .m-icon-btn {
+                width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid var(--ink-200);
+                background: var(--white); font-size: 1.1rem; line-height: 1; display: grid; place-items: center;
+            }
+
+            /* Ocultar barra lateral, overlay y pestañas de escritorio */
+            .sidebar, .mobile-overlay, #tab-bar { display: none !important; }
+            .main-layout, .content-area { overflow: visible !important; height: auto !important; min-height: 0 !important; }
+            .content-area { padding: 0 !important; }
+            .tab-pane { padding: 12px !important; }
+
+            /* Selector de válvula fijo bajo el encabezado */
+            .m-valve-bar {
+                display: flex !important; align-items: center; gap: 8px;
+                position: sticky; top: 56px; z-index: 95;
+                background: var(--white); padding: 8px 12px; border-bottom: 1px solid var(--ink-200);
+                box-shadow: 0 4px 10px rgba(0,0,0,0.04);
+            }
+            .m-valve-bar[hidden] { display: none !important; }
+            .m-arrow {
+                width: 44px; height: 44px; flex: 0 0 44px; border-radius: 12px;
+                border: 1.5px solid var(--ink-200); background: var(--ink-050);
+                font-size: 1.3rem; font-weight: 800; color: var(--ink-700);
+            }
+            .m-arrow:disabled { opacity: 0.35; }
+            .m-valve-pick {
+                flex: 1; min-width: 0; height: 44px; border-radius: 12px; border: 1.5px solid var(--marca);
+                background: var(--marca-050); color: var(--marca); text-align: left; padding: 0 12px;
+                display: flex; flex-direction: column; justify-content: center;
+            }
+            .m-valve-pick b { font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .m-valve-pick small { font-size: 0.7rem; color: var(--ink-500); font-weight: 600; }
+
+            /* Fichas de la válvula: se ocultan las repetidas en la barra */
+            #valves-view .chip-bloque, #valves-view .chip-valvula, #valves-view .chip-variedad { display: none; }
+            #valves-view .chip-row { margin-bottom: 10px; }
+            #valves-view .chip-hoja { margin-left: 0; }
+
+            /* Barra de pestañas inferior */
+            .m-bottom-nav {
+                display: grid !important; grid-template-columns: repeat(4, 1fr);
+                position: fixed; left: 0; right: 0; bottom: 0; z-index: 1100;
+                background: var(--white); border-top: 1px solid var(--ink-200);
+                padding-bottom: env(safe-area-inset-bottom);
+                box-shadow: 0 -4px 14px rgba(0,0,0,0.06);
+            }
+            .m-bottom-nav button {
+                border: none; background: none; height: 64px; display: flex; flex-direction: column;
+                align-items: center; justify-content: center; gap: 3px;
+                font-size: 0.68rem; font-weight: 700; color: var(--ink-500); position: relative;
+            }
+            .m-bottom-nav button .ico { font-size: 1.3rem; line-height: 1; filter: grayscale(1); opacity: 0.7; }
+            .m-bottom-nav button.on { color: var(--marca); }
+            .m-bottom-nav button.on .ico { filter: none; opacity: 1; }
+            .m-bottom-nav button.on::before {
+                content: ''; position: absolute; top: 0; left: 22%; right: 22%; height: 3px;
+                border-radius: 0 0 3px 3px; background: var(--marca);
+            }
+
+            /* Hojas inferiores (válvulas y acciones) */
+            .m-sheet-back {
+                display: block !important; position: fixed; inset: 0; z-index: 1200;
+                background: rgba(0,0,0,0.45); opacity: 0; pointer-events: none; transition: opacity .2s;
+            }
+            .m-sheet-back.open { opacity: 1; pointer-events: auto; }
+            .m-sheet {
+                display: flex !important; flex-direction: column;
+                position: fixed; left: 0; right: 0; bottom: 0; z-index: 1210; max-height: 82vh;
+                background: var(--white); border-radius: 20px 20px 0 0;
+                transform: translateY(105%); transition: transform .25s ease;
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+            .m-sheet.open { transform: none; }
+            .m-sheet-head {
+                padding: 10px 16px 12px; border-bottom: 1px solid var(--ink-100);
+                display: flex; align-items: center; justify-content: space-between;
+            }
+            .m-sheet-head::before {
+                content: ''; position: absolute; top: 6px; left: 50%; width: 40px; height: 4px;
+                margin-left: -20px; border-radius: 4px; background: var(--ink-200);
+            }
+            .m-sheet-head h3 { font-size: 1rem; margin: 8px 0 0; font-weight: 800; }
+            .m-sheet-body { overflow-y: auto; padding: 12px 16px 20px; }
+            .m-search {
+                width: 100%; height: 42px; border-radius: 12px; border: 1.5px solid var(--ink-200);
+                padding: 0 12px; font-size: 0.95rem; margin-bottom: 12px;
+            }
+            .m-block { margin-bottom: 14px; }
+            .m-block-title { font-size: 0.74rem; font-weight: 800; color: var(--ink-500); letter-spacing: .04em; margin-bottom: 6px; }
+            .m-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+            .m-grid button {
+                min-height: 52px; border-radius: 12px; border: 1.5px solid var(--ink-200); background: var(--white);
+                font-weight: 800; font-size: 0.95rem; color: var(--ink-800); line-height: 1.1; padding: 4px;
+            }
+            .m-grid button small { display: block; font-size: 0.66rem; font-weight: 600; color: var(--ink-500); margin-top: 2px; }
+            .m-grid button.on { background: var(--marca); border-color: var(--marca); color: var(--white); }
+            .m-grid button.on small { color: #f0dcf3; }
+            .m-actions-body .header-right {
+                display: flex !important; flex-direction: column; align-items: stretch !important; gap: 10px !important; margin: 0 !important;
+            }
+            .m-actions-body .header-right > * { width: 100%; justify-content: center; }
+            .m-actions-body .header-control { display: none !important; }
+            .m-actions-body .upload-btn { min-height: 46px; display: flex !important; align-items: center; gap: 8px; }
+            .m-actions-body #repo-status-badge { text-align: center; padding: 6px; }
+        }
+    </style>
+
+    <div class="m-only m-bottom-nav" id="m-bottom-nav" role="tablist" aria-label="Secciones">
+        <button type="button" data-tab="valves-view"><span class="ico">💧</span>Válvula</button>
+        <button type="button" data-tab="fertirriego-view"><span class="ico">🗓️</span>Fertirriego</button>
+        <button type="button" data-tab="report-view"><span class="ico">📋</span>Reporte</button>
+        <button type="button" data-tab="graphs-view"><span class="ico">📈</span>Gráficas</button>
+    </div>
+    <div class="m-only m-sheet-back" id="m-sheet-back"></div>
+    <div class="m-only m-sheet" id="m-valve-sheet" role="dialog" aria-label="Elegir válvula">
+        <div class="m-sheet-head"><h3>Elegir válvula</h3><button type="button" class="m-icon-btn" data-close>✕</button></div>
+        <div class="m-sheet-body">
+            <input class="m-search" id="m-valve-search" type="search" inputmode="numeric" placeholder="Buscar número o variedad…">
+            <div id="m-valve-grid"></div>
+        </div>
+    </div>
+    <div class="m-only m-sheet" id="m-actions-sheet" role="dialog" aria-label="Archivo y opciones">
+        <div class="m-sheet-head"><h3>Archivo y opciones</h3><button type="button" class="m-icon-btn" data-close>✕</button></div>
+        <div class="m-sheet-body m-actions-body" id="m-actions-body"></div>
+    </div>
+
+    <script>
+    (function () {
+        const mq = window.matchMedia('(max-width: 768px)');
+        const header = document.querySelector('.app-header');
+        const headerRight = header.querySelector('.header-right');
+        const monthCtl = headerRight.querySelector('.header-control');
+        const content = document.querySelector('.content-area');
+        const nav = document.getElementById('m-bottom-nav');
+        const back = document.getElementById('m-sheet-back');
+        const valveSheet = document.getElementById('m-valve-sheet');
+        const actionsSheet = document.getElementById('m-actions-sheet');
+        const grid = document.getElementById('m-valve-grid');
+        const search = document.getElementById('m-valve-search');
+
+        /* Acciones arriba a la derecha: mes + botón de opciones */
+        const top = document.createElement('div');
+        top.className = 'm-only m-top-actions';
+        const optBtn = document.createElement('button');
+        optBtn.type = 'button'; optBtn.className = 'm-icon-btn'; optBtn.textContent = '⋯';
+        optBtn.setAttribute('aria-label', 'Archivo y opciones');
+        top.appendChild(optBtn);
+        header.appendChild(top);
+
+        /* Barra de válvula */
+        const bar = document.createElement('div');
+        bar.className = 'm-only m-valve-bar';
+        bar.innerHTML = '<button type="button" class="m-arrow" id="m-prev" aria-label="Válvula anterior">‹</button>' +
+            '<button type="button" class="m-valve-pick" id="m-pick"><b id="m-pick-t">Carga un mes</b><small id="m-pick-s">Toca para elegir válvula ▾</small></button>' +
+            '<button type="button" class="m-arrow" id="m-next" aria-label="Válvula siguiente">›</button>';
+        content.insertBefore(bar, content.firstChild);
+
+        /* Mover controles entre escritorio y móvil sin perder sus eventos */
+        const homeMonth = { parent: monthCtl.parentNode, next: monthCtl.nextSibling };
+        const homeRight = { parent: headerRight.parentNode, next: headerRight.nextSibling };
+        function acomodar() {
+            if (mq.matches) {
+                top.insertBefore(monthCtl, optBtn);
+                document.getElementById('m-actions-body').appendChild(headerRight);
+            } else {
+                homeRight.parent.insertBefore(headerRight, homeRight.next);
+                headerRight.insertBefore(monthCtl, headerRight.firstChild);
+                cerrar();
+            }
+        }
+        mq.addEventListener('change', acomodar);
+        acomodar();
+
+        /* Pestañas inferiores = clic en las pestañas originales */
+        const tabOriginal = t => document.querySelector('.tab-btn[data-tab="' + t + '"]');
+        nav.addEventListener('click', e => {
+            const b = e.target.closest('button'); if (!b) return;
+            tabOriginal(b.dataset.tab).click();
+            window.scrollTo({ top: 0 });
+        });
+        function syncTabs() {
+            const act = document.querySelector('.tab-btn.active');
+            const t = act ? act.dataset.tab : 'valves-view';
+            nav.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+            bar.hidden = t !== 'valves-view';
+        }
+        document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => setTimeout(syncTabs)));
+
+        /* Válvulas: se leen de los botones del menú lateral */
+        const valvulas = () => [...document.querySelectorAll('#blocks-container .valve-btn')];
+        const datos = b => {
+            const m = b.textContent.match(/V[aá]lvula\s+(\d+)\s*\((.*)\)/);
+            const card = b.closest('.block-card');
+            const bloque = card ? (card.querySelector('.block-header span:nth-child(2)') || {}).textContent : '';
+            return { n: m ? m[1] : b.textContent, variedad: m ? m[2] : '', bloque: bloque || '' };
+        };
+        function syncValve() {
+            const lista = valvulas();
+            const i = lista.findIndex(b => b.classList.contains('active'));
+            const t = document.getElementById('m-pick-t'), s = document.getElementById('m-pick-s');
+            if (i < 0) { t.textContent = lista.length ? 'Elige una válvula' : 'Carga un mes'; s.textContent = lista.length ? lista.length + ' válvulas disponibles ▾' : 'Usa el selector de mes ↑'; }
+            else { const d = datos(lista[i]); t.textContent = 'Válvula ' + d.n + ' · ' + d.variedad; s.textContent = d.bloque + ' · ' + (i + 1) + ' de ' + lista.length + '  ▾'; }
+            document.getElementById('m-prev').disabled = i <= 0;
+            document.getElementById('m-next').disabled = i < 0 || i >= lista.length - 1;
+        }
+        const ir = paso => {
+            const lista = valvulas(); const i = lista.findIndex(b => b.classList.contains('active'));
+            const j = i + paso; if (lista[j]) { lista[j].click(); window.scrollTo({ top: 0 }); }
+        };
+        document.getElementById('m-prev').addEventListener('click', () => ir(-1));
+        document.getElementById('m-next').addEventListener('click', () => ir(1));
+
+        /* Deslizar a los lados sobre la planilla también cambia de válvula */
+        let x0 = null, y0 = null;
+        const vv = document.getElementById('valves-view');
+        vv.addEventListener('touchstart', e => { if (e.target.closest('.table-scroll-wrap, canvas')) { x0 = null; return; } x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+        vv.addEventListener('touchend', e => {
+            if (x0 === null || !mq.matches) return;
+            const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+            if (Math.abs(dx) > 70 && Math.abs(dx) > 2 * Math.abs(dy)) ir(dx < 0 ? 1 : -1);
+            x0 = null;
+        });
+
+        function pintarGrid() {
+            const q = search.value.trim().toLowerCase();
+            const porBloque = {};
+            valvulas().forEach(b => { const d = datos(b); if (q && !(d.n.includes(q) || d.variedad.toLowerCase().includes(q) || d.bloque.toLowerCase().includes(q))) return; (porBloque[d.bloque] = porBloque[d.bloque] || []).push([b, d]); });
+            grid.innerHTML = '';
+            const bloques = Object.keys(porBloque);
+            if (!bloques.length) { grid.innerHTML = '<p style="color:var(--ink-500);text-align:center;">' + (valvulas().length ? 'Sin resultados' : 'Primero elige un mes.') + '</p>'; return; }
+            bloques.forEach(bl => {
+                const sec = document.createElement('div'); sec.className = 'm-block';
+                sec.innerHTML = '<div class="m-block-title">🧱 ' + bl.toUpperCase() + '</div>';
+                const g = document.createElement('div'); g.className = 'm-grid';
+                porBloque[bl].forEach(([b, d]) => {
+                    const x = document.createElement('button'); x.type = 'button';
+                    x.className = b.classList.contains('active') ? 'on' : '';
+                    x.innerHTML = 'V' + d.n + '<small>' + d.variedad + '</small>';
+                    x.addEventListener('click', () => { b.click(); cerrar(); window.scrollTo({ top: 0 }); });
+                    g.appendChild(x);
+                });
+                sec.appendChild(g); grid.appendChild(sec);
+            });
+        }
+        search.addEventListener('input', pintarGrid);
+
+        function abrir(sheet) { cerrar(); sheet.classList.add('open'); back.classList.add('open'); if (sheet === valveSheet) { search.value = ''; pintarGrid(); } }
+        function cerrar() { [valveSheet, actionsSheet].forEach(s => s.classList.remove('open')); back.classList.remove('open'); }
+        document.getElementById('m-pick').addEventListener('click', () => abrir(valveSheet));
+        optBtn.addEventListener('click', () => abrir(actionsSheet));
+        back.addEventListener('click', cerrar);
+        document.querySelectorAll('.m-sheet [data-close]').forEach(b => b.addEventListener('click', cerrar));
+        headerRight.addEventListener('change', () => setTimeout(cerrar, 150));
+
+        /* Mantener la barra al día cuando cambian válvulas o pestañas */
+        new MutationObserver(() => { syncValve(); syncTabs(); })
+            .observe(document.getElementById('blocks-container'), { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+        syncTabs(); syncValve();
+    })();
+    </script>
+
 </body>
 </html>
