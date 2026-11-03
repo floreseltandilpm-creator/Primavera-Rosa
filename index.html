@@ -315,6 +315,7 @@
             background: var(--marca); color: var(--white);
             border: 1.5px solid var(--marca); text-decoration: none;
             transition: background 0.15s, transform 0.15s;
+            margin-left: auto;
         }
         .foliar-btn:hover { background: var(--marca-400); transform: translateY(-1px); }
         .foliar-btn:focus-visible { outline: 2px solid var(--marca-400); outline-offset: 2px; }
@@ -1820,8 +1821,7 @@
             const fichas = [
                 ['chip-bloque',   '🧱', getBlockForValve(nv).join(' · ') || 'Sin bloque'],
                 ['chip-valvula',  '💧', 'Válvula ' + nv],
-                ['chip-variedad', '🌹', 'Variedad: ' + (getVarietyForValve(nv) || '—')],
-                ['chip-hoja',     '📄', 'Hoja: ' + sheetName]
+                ['chip-variedad', '🌹', 'Variedad: ' + (getVarietyForValve(nv) || '—')]
             ];
             const fila = document.createElement('div');
             fila.className = 'chip-row';
@@ -3700,7 +3700,7 @@
             /* Fichas de la válvula: se ocultan las repetidas en la barra */
             #valves-view .chip-bloque, #valves-view .chip-valvula, #valves-view .chip-variedad { display: none; }
             #valves-view .chip-row { margin-bottom: 10px; }
-            #valves-view .chip-hoja { margin-left: 0; }
+            #valves-view .foliar-btn { margin-left: 0; }
 
             /* Barra de pestañas inferior */
             .m-bottom-nav {
