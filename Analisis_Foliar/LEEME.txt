@@ -1,0 +1,10 @@
+CARPETA DE ANÁLISIS FOLIARES – Tablero MIRFE Primavera-Rosa
+
+1. Guarda aquí los PDF del laboratorio tal como llegan (no hace falta renombrarlos).
+2. Actualiza el índice de una de estas dos formas:
+     - Pídeselo a Claude ("clasifica los foliares nuevos"), o
+     - Ejecuta en esta carpeta:  python clasificar_foliares.py   (requiere: pip install pypdf)
+3. Sube a GitHub los PDF nuevos y el archivo indice_foliar.js.
+
+Cada informe se asigna a todas las válvulas que trae (ej. 39,40,41). El botón
+"Último Análisis Foliar" de cada válvula abre el más reciente según la fecha de muestreo.
