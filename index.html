@@ -11,6 +11,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <!-- Índice de análisis foliares (lo genera Analisis_Foliar/clasificar_foliares.py) -->
+    <script src="Analisis_Foliar/indice_foliar.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
@@ -304,6 +306,22 @@
         .chip-valvula  { background:#fff7e6;          color:#8a5a00;      border-color:#fbe0b0; }
         .chip-variedad { background:var(--marca-050); color:var(--marca); border-color:#e6cdea; }
         .chip-hoja     { background:var(--ink-100);   color:var(--ink-500); border-color:var(--ink-200); margin-left:auto; }
+
+        /* ── BOTÓN ÚLTIMO ANÁLISIS FOLIAR (por válvula) ── */
+        .foliar-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: 999px;
+            font-size: 0.78rem; font-weight: 700; white-space: nowrap;
+            background: var(--marca); color: var(--white);
+            border: 1.5px solid var(--marca); text-decoration: none;
+            transition: background 0.15s, transform 0.15s;
+        }
+        .foliar-btn:hover { background: var(--marca-400); transform: translateY(-1px); }
+        .foliar-btn:focus-visible { outline: 2px solid var(--marca-400); outline-offset: 2px; }
+        .foliar-btn.foliar-sin {
+            background: var(--ink-100); color: var(--ink-400);
+            border-color: var(--ink-200); cursor: not-allowed; transform: none;
+        }
 
         /* ── CONTENIDO DE PESTAÑAS ── */
         .tab-pane { display: none; padding: 16px; }
@@ -1758,6 +1776,41 @@
             };
         }
 
+        /* ── ÚLTIMO ANÁLISIS FOLIAR ──
+           Los PDF del laboratorio se guardan tal cual en la carpeta
+           Analisis_Foliar/. El script clasificar_foliares.py los lee y genera
+           Analisis_Foliar/indice_foliar.js (window.ANALISIS_FOLIAR), que dice
+           qué válvulas cubre cada informe. Aquí se toma el más reciente
+           (por fecha de muestreo) que incluya la válvula. */
+        const ANALISIS_FOLIAR_CARPETA = 'Analisis_Foliar';
+        function ultimoAnalisisFoliar(nv) {
+            const lista = Array.isArray(window.ANALISIS_FOLIAR) ? window.ANALISIS_FOLIAR : [];
+            return lista.filter(r => (r.valvulas || []).includes(nv))
+                        .sort((x, y) => (x.fechaMuestreo + x.fechaInforme).localeCompare(y.fechaMuestreo + y.fechaInforme))
+                        .pop() || null;
+        }
+        function crearBotonFoliar(nv) {
+            const a = document.createElement('a');
+            a.className = 'foliar-btn';
+            const r = ultimoAnalisisFoliar(nv);
+            if (!r) {
+                a.classList.add('foliar-sin');
+                a.setAttribute('aria-disabled', 'true');
+                a.title = 'Aún no hay análisis foliar cargado para la válvula ' + nv;
+                a.innerHTML = '<span class="chip-ico">🍃</span>Sin análisis foliar';
+                return a;
+            }
+            a.href = ANALISIS_FOLIAR_CARPETA + '/' + encodeURIComponent(r.archivo);
+            a.target = '_blank';
+            a.rel = 'noopener';
+            a.setAttribute('download', 'Analisis_Foliar_V' + nv + '_sem' + r.semana + '.pdf');
+            a.title = 'Último análisis foliar · Semana ' + r.semana + ' · muestreo ' + r.fechaMuestreo +
+                      '\nBloque ' + (r.bloques || []).join(', ') + ' · Válvulas ' + (r.valvulas || []).join(', ') +
+                      (r.variedad ? '\nVariedad: ' + r.variedad : '') + (r.laboratorio ? '\nNo. lab: ' + r.laboratorio : '');
+            a.innerHTML = '<span class="chip-ico">🍃</span>Último Análisis Foliar · Sem ' + r.semana;
+            return a;
+        }
+
         /* Fila de fichas sobre la tabla: de un vistazo se ve en qué bloque,
            válvula, variedad y hoja del Excel se está parado. */
         function crearChipsValvula(container, sheetName) {
@@ -1782,6 +1835,7 @@
                 chip.appendChild(document.createTextNode(texto));
                 fila.appendChild(chip);
             });
+            fila.appendChild(crearBotonFoliar(nv));
             container.appendChild(fila);
         }
 
